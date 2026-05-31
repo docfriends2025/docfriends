@@ -1,0 +1,131 @@
+---
+import BrandMark from './BrandMark.astro';
+import { NAV_LINKS, SITE, HOME_FOR_ROLE } from '~/lib/site';
+import { initialsFrom } from '~/lib/format';
+
+interface Props { activeNav?: string; }
+const { activeNav } = Astro.props;
+const currentPath = Astro.url.pathname;
+const user = Astro.locals.user;
+
+const isActive = (link: typeof NAV_LINKS[number]) =>
+  activeNav ? (link.href === activeNav) : link.match.some((m) => m === currentPath);
+
+const portalHome = user ? (HOME_FOR_ROLE[user.role] ?? '/dashboard') : '/dashboard';
+const userInitials = user ? initialsFrom(user.name, user.email) : '';
+const userDisplay = user ? (user.name ?? user.email.split('@')[0]) : '';
+---
+
+<nav class="nav">
+  <div class="nav-inner container">
+    <a href="/" class="brand">
+      <BrandMark />
+      <span>{SITE.name}</span>
+    </a>
+
+    <div class="nav-links">
+      {NAV_LINKS.map((link) => (
+        <a href={link.href} class:list={[{ active: isActive(link) }]}>{link.label}</a>
+      ))}
+    </div>
+
+    <div class="nav-actions">
+      {user ? (
+        <div class="user-menu" data-user-menu>
+          <button type="button" class="user-pill" data-user-toggle aria-haspopup="true" aria-expanded="false">
+            <span class="user-avatar">{userInitials}</span>
+            <span class="user-name">{userDisplay}</span>
+            <span class="user-caret">▾</span>
+          </button>
+          <div class="user-dropdown" data-user-dropdown hidden>
+            <div class="user-info">
+              <div class="user-info-name">{user.name ?? 'Signed in'}</div>
+              <div class="user-info-email">{user.email}</div>
+            </div>
+            <a href={portalHome} class="user-link">{user.role === 'doctor' ? 'Doctor portal' : user.role === 'admin' ? 'Admin portal' : 'Dashboard'}</a>
+            {user.role === 'client' && <a href="/case/start" class="user-link">Start a case</a>}
+            {user.role === 'client' && <a href="/account" class="user-link">Account</a>}
+            <div class="user-sep"></div>
+            <a href="/api/auth/sign-out" class="user-link signout">Sign out</a>
+          </div>
+        </div>
+      ) : (
+        <>
+          <a href="/sign-in" class="nav-login">Log in</a>
+          <a href="/case/start" class="btn primary sm">Start a case →</a>
+        </>
+      )}
+    </div>
+  </div>
+</nav>
+
+<style>
+  .nav {
+    position: sticky; top: 0; z-index: 50;
+    background: color-mix(in srgb, var(--paper) 90%, transparent);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav-inner { display: flex; align-items: center; justify-content: space-between; gap: 28px; padding-block: 15px; }
+  .brand { font-family: var(--serif); font-size: 23px; letter-spacing: -.01em; display: inline-flex; align-items: center; gap: 10px; }
+  .nav-links { display: flex; gap: 28px; font-size: 14px; font-weight: 500; color: var(--ink-soft); }
+  .nav-links a { position: relative; padding: 3px 0; transition: color .15s; }
+  .nav-links a:hover { color: var(--ink); }
+  .nav-links a.active { color: var(--ink); }
+  .nav-links a.active::after { content: ''; position: absolute; bottom: -3px; left: 0; right: 0; height: 1.5px; background: var(--accent); }
+  .nav-actions { display: flex; align-items: center; gap: 16px; }
+  .nav-login { font-size: 14px; font-weight: 500; color: var(--ink-soft); }
+  .nav-login:hover { color: var(--ink); }
+
+  .user-menu { position: relative; }
+  .user-pill {
+    display: inline-flex; align-items: center; gap: 9px; padding: 5px 13px 5px 5px;
+    background: var(--paper); border: 1px solid var(--line-strong); border-radius: 99px;
+    cursor: pointer; font-size: 13px; transition: border-color .12s;
+  }
+  .user-pill:hover { border-color: var(--ink); }
+  .user-avatar {
+    width: 27px; height: 27px; background: var(--accent-tint); color: var(--accent-deep);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-family: var(--serif); font-size: 13px;
+  }
+  .user-name { font-weight: 500; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .user-caret { color: var(--ink-light); font-size: 9px; }
+  .user-dropdown {
+    position: absolute; top: calc(100% + 8px); right: 0; min-width: 222px;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 20px 48px -22px rgba(26,34,56,.22); padding: 8px; z-index: 60;
+  }
+  .user-info { padding: 10px 12px 12px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+  .user-info-name { font-size: 13.5px; font-weight: 600; }
+  .user-info-email { font-size: 12px; color: var(--ink-soft); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .user-link { display: block; padding: 8px 12px; font-size: 13.5px; font-weight: 500; border-radius: 7px; }
+  .user-link:hover { background: var(--paper-2); }
+  .user-link.signout { color: var(--danger); }
+  .user-sep { height: 1px; background: var(--line); margin: 6px 0; }
+
+  @media (max-width: 880px) {
+    .nav-links { display: none; }
+    .user-name { display: none; }
+  }
+</style>
+
+<script>
+  const menu = document.querySelector<HTMLDivElement>('[data-user-menu]');
+  const toggle = menu?.querySelector<HTMLButtonElement>('[data-user-toggle]');
+  const dropdown = menu?.querySelector<HTMLDivElement>('[data-user-dropdown]');
+  if (toggle && dropdown && menu) {
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = !dropdown.hidden;
+      dropdown.hidden = open;
+      toggle.setAttribute('aria-expanded', String(!open));
+    });
+    document.addEventListener('click', (e) => {
+      if (!dropdown.hidden && !menu.contains(e.target as Node)) { dropdown.hidden = true; toggle.setAttribute('aria-expanded', 'false'); }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !dropdown.hidden) { dropdown.hidden = true; toggle.setAttribute('aria-expanded', 'false'); toggle.focus(); }
+    });
+  }
+</script>

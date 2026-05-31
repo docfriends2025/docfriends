@@ -1,0 +1,203 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+
+export const prerender = false;
+
+const stats = [
+  { n: '500+', l: 'vetted specialists' },
+  { n: '24 h',  l: 'average turnaround' },
+  { n: '4.9★', l: 'from 1,200+ clients' },
+];
+---
+
+<BaseLayout activeNav="/">
+  <section class="hero">
+    <div class="container hero-grid">
+      <!-- LEFT: editorial pitch -->
+      <div class="hero-left">
+        <div class="eyebrow">— Specialist second opinions</div>
+        <h1 class="h-display hero-title">
+          A panel of doctors,<br />
+          <em>at your side,</em><br />
+          within 24 hours.
+        </h1>
+        <p class="hero-lead">
+          Upload your reports. Share what worries you. Board-certified specialists
+          read your case in full and write back — clearly, kindly, without the rush.
+        </p>
+
+        <div class="stats">
+          {stats.map((s) => (
+            <div class="stat">
+              <div class="stat-n h-display">{s.n}</div>
+              <div class="stat-l faint tiny">{s.l}</div>
+            </div>
+          ))}
+        </div>
+
+        <figure class="quote-card">
+          <figcaption class="eyebrow"><span class="q-mark">❝</span> What clients say</figcaption>
+          <blockquote>"Helped me avoid a surgery I didn't need."</blockquote>
+          <cite class="faint tiny">— Priya, 34 · Mumbai · Cardiology</cite>
+        </figure>
+      </div>
+
+      <!-- RIGHT: in-page case intake (step 1 of the flow) -->
+      <div class="hero-right">
+        <form class="case-form card" data-intake-form>
+          <div class="cf-head">
+            <div class="eyebrow">Start your case · free until you choose a panel</div>
+            <span class="chip">Step 1 of 3</span>
+          </div>
+          <h2 class="h-display cf-title">Tell us what is going on.</h2>
+          <p class="cf-sub muted">Doctors review in 24 hours. You only pay when you pick a panel.</p>
+
+          <label class="field-label">Reports &amp; scans <span class="opt">(optional)</span></label>
+          <label class="dropzone" data-drop>
+            <span class="dz-icon">↑</span>
+            <span class="dz-text">
+              <strong>Drop reports here or click to browse</strong>
+              <span class="faint tiny">PDF, JPG, DICOM · up to 50 MB each</span>
+            </span>
+            <span class="faint tiny dz-skip">or skip →</span>
+            <input type="file" name="files" multiple hidden data-files />
+          </label>
+          <div class="file-list" data-file-list></div>
+
+          <label class="field-label" for="cf-symptoms">What is going on? <span class="opt">· symptoms, what you've already heard</span></label>
+          <textarea id="cf-symptoms" name="symptoms" class="input-box" rows="3"
+            placeholder='e.g. "Chest tightness when climbing stairs, started 3 months ago. Doctor mentioned an angiogram — I want to know if it&#39;s necessary."' required></textarea>
+
+          <label class="field-label" for="cf-diagnosis">Existing diagnosis <span class="opt">(if any)</span></label>
+          <input id="cf-diagnosis" name="diagnosis" class="input-box" placeholder="e.g. Stable angina, March 2026" />
+
+          <label class="field-label" for="cf-meds">Current medications</label>
+          <input id="cf-meds" name="medications" class="input-box" placeholder="e.g. Atorvastatin 20 mg, Aspirin 75 mg…" />
+
+          <label class="field-label">What do you want our doctors to clarify? <span class="opt">· up to 3 questions</span></label>
+          <div class="q-rows">
+            <div class="q-row"><span class="q-n mono">01</span><input name="q1" class="input-line" placeholder="e.g. Do I actually need an angiogram now?" /></div>
+            <div class="q-row"><span class="q-n mono">02</span><input name="q2" class="input-line" placeholder="e.g. Is there a less aggressive path I'm not seeing?" /></div>
+            <div class="q-row"><span class="q-n mono">03</span><input name="q3" class="input-line" placeholder="Add another question…" /></div>
+          </div>
+
+          <div class="cf-foot">
+            <span class="faint tiny">✓ Encrypted · only your doctors see this</span>
+            <button type="submit" class="btn primary" data-submit>
+              <span class="l-default">Continue · choose a panel →</span>
+              <span class="l-loading" hidden>Saving…</span>
+            </button>
+          </div>
+          <div class="alert error cf-error" data-error hidden></div>
+        </form>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .hero { padding-block: clamp(28px, 5vw, 56px) 40px; }
+  .hero-grid { display: grid; grid-template-columns: 1fr 1.05fr; gap: clamp(32px, 5vw, 72px); align-items: start; }
+
+  .hero-left { padding-top: 18px; }
+  .hero-title { font-size: clamp(40px, 6vw, 68px); margin: 18px 0 22px; }
+  .hero-lead { font-size: 17px; line-height: 1.6; color: var(--ink-soft); max-width: 440px; }
+
+  .stats { display: flex; gap: 40px; margin: 34px 0; padding-block: 22px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .stat-n { font-size: 30px; }
+  .stat-l { margin-top: 3px; }
+
+  .quote-card { border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; background: var(--paper); max-width: 420px; }
+  .quote-card .eyebrow { display: flex; align-items: center; gap: 7px; }
+  .q-mark { color: var(--accent); font-size: 14px; }
+  .quote-card blockquote { font-family: var(--serif); font-size: 19px; line-height: 1.35; margin: 10px 0 8px; }
+
+  /* form */
+  .case-form { padding: clamp(22px, 3vw, 30px); box-shadow: 0 30px 60px -34px rgba(26,34,56,.18); position: relative; }
+  .case-form::before { content: ''; position: absolute; inset: -1px -1px auto; height: 4px; background: var(--accent); border-radius: var(--radius) var(--radius) 0 0; }
+  .cf-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .cf-title { font-size: 28px; margin-top: 10px; }
+  .cf-sub { font-size: 14px; margin: 5px 0 20px; }
+  .field-label { margin-top: 20px; }
+
+  .dropzone { display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px dashed var(--line-strong); border-radius: 10px; background: var(--accent-tint); cursor: pointer; transition: border-color .15s; }
+  .dropzone:hover { border-color: var(--accent); }
+  .dropzone.drag { border-color: var(--accent); background: #f3e2d6; }
+  .dz-icon { width: 38px; height: 38px; display: grid; place-items: center; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 8px; font-size: 18px; color: var(--accent-deep); flex-shrink: 0; }
+  .dz-text { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+  .dz-skip { margin-left: auto; }
+  .file-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .file-list:empty { display: none; }
+  .file-pill { display: inline-flex; gap: 6px; align-items: center; padding: 5px 11px; background: var(--paper-2); border: 1px solid var(--line); border-radius: 99px; font-size: 12px; }
+
+  textarea#cf-symptoms { min-height: 78px; }
+  .q-rows { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+  .q-row { display: flex; align-items: center; gap: 12px; }
+  .q-n { color: var(--accent); font-size: 11px; }
+  .q-row .input-line { font-size: 14px; }
+
+  .cf-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .cf-error { margin-top: 12px; }
+
+  @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; } .hero-left { order: 2; } }
+</style>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('[data-intake-form]');
+  const drop = document.querySelector<HTMLLabelElement>('[data-drop]');
+  const filesInput = document.querySelector<HTMLInputElement>('[data-files]');
+  const fileList = document.querySelector<HTMLDivElement>('[data-file-list]');
+  const submit = form?.querySelector<HTMLButtonElement>('[data-submit]');
+  const errorEl = form?.querySelector<HTMLDivElement>('[data-error]');
+  const lDefault = submit?.querySelector('.l-default') as HTMLElement | null;
+  const lLoading = submit?.querySelector('.l-loading') as HTMLElement | null;
+
+  function renderFiles() {
+    if (!fileList || !filesInput) return;
+    const names = Array.from(filesInput.files ?? []).map((f) => f.name);
+    fileList.innerHTML = names.map((n) => `<span class="file-pill">📎 ${n}</span>`).join('');
+  }
+  filesInput?.addEventListener('change', renderFiles);
+  ['dragover', 'dragenter'].forEach((ev) => drop?.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('drag'); }));
+  ['dragleave', 'drop'].forEach((ev) => drop?.addEventListener(ev, () => drop.classList.remove('drag')));
+  drop?.addEventListener('drop', (e) => {
+    const dt = (e as DragEvent).dataTransfer;
+    if (dt?.files && filesInput) { filesInput.files = dt.files; renderFiles(); }
+  });
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!submit) return;
+    if (errorEl) errorEl.hidden = true;
+    submit.disabled = true;
+    if (lDefault) lDefault.hidden = true;
+    if (lLoading) lLoading.hidden = false;
+
+    const fd = new FormData(form);
+    const questions = [fd.get('q1'), fd.get('q2'), fd.get('q3')]
+      .map((q) => String(q || '').trim()).filter(Boolean);
+    const fileNames = Array.from(filesInput?.files ?? []).map((f) => ({ name: f.name, size: f.size }));
+
+    try {
+      const res = await fetch('/api/case/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symptoms: String(fd.get('symptoms') || ''),
+          diagnosis: String(fd.get('diagnosis') || ''),
+          medications: String(fd.get('medications') || ''),
+          questions,
+          files: fileNames,
+        }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string; next?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Something went wrong.');
+      window.location.href = data.next || '/case/start';
+    } catch (err) {
+      if (errorEl) { errorEl.hidden = false; errorEl.textContent = err instanceof Error ? err.message : 'Network error.'; }
+      submit.disabled = false;
+      if (lDefault) lDefault.hidden = false;
+      if (lLoading) lLoading.hidden = true;
+    }
+  });
+</script>

@@ -1,0 +1,117 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { getEnv } from '~/lib/db';
+import { getJournalPosts } from '~/lib/content';
+import { JOURNAL_CATEGORIES } from '~/lib/site';
+import { formatDate } from '~/lib/format';
+
+export const prerender = false;
+
+const posts = await getJournalPosts(getEnv(Astro.locals));
+const featured = posts.find((p) => p.featured) ?? posts[0];
+const rest = posts.filter((p) => p.slug !== featured?.slug);
+const catLabel = (slug: string | null) => JOURNAL_CATEGORIES.find((c) => c.slug === slug)?.label ?? 'Note';
+---
+
+<BaseLayout title="Journal — DocFriends" description="Notes from the consult room — decisions, patient guides, and stories." activeNav="/journal">
+  <section class="journal">
+    <div class="container">
+      <header class="j-head">
+        <div>
+          <div class="eyebrow">The DocFriends journal</div>
+          <h1 class="h-display j-title">Notes from <em>the consult room.</em></h1>
+        </div>
+        <div class="j-filters" data-filters>
+          {JOURNAL_CATEGORIES.map((c, i) => (
+            <button type="button" class:list={['pill', { active: i === 0 }]} data-cat={c.slug}>{c.label}</button>
+          ))}
+        </div>
+      </header>
+
+      {featured && (
+        <a href={`/journal/${featured.slug}`} class="feature" data-post data-cat={featured.category}>
+          <div class="feature-img"><span class="img-note mono">image · featured story</span></div>
+          <div class="feature-body">
+            <div class="eyebrow">Featured · {catLabel(featured.category)}</div>
+            <h2 class="h-display feature-title">{featured.title}</h2>
+            {featured.excerpt && <p class="feature-excerpt muted">{featured.excerpt}</p>}
+            <div class="byline">
+              <span class="avatar">{featured.authorInitials}</span>
+              <div>
+                <div class="byline-name">{featured.authorName}</div>
+                <div class="faint tiny">{featured.readMinutes} min read{featured.publishedAt ? ` · ${formatDate(featured.publishedAt)}` : ''}</div>
+              </div>
+              <span class="read-link">Read essay →</span>
+            </div>
+          </div>
+        </a>
+      )}
+
+      <div class="grid" data-grid>
+        {rest.map((p) => (
+          <a href={`/journal/${p.slug}`} class="post-card" data-post data-cat={p.category}>
+            <div class="post-img"><span class="img-note mono">image · {catLabel(p.category).toLowerCase()}</span></div>
+            <div class="post-meta"><span class="chip solid">{catLabel(p.category)}</span></div>
+            <h3 class="h-display post-title">{p.title}</h3>
+            <div class="faint tiny">{p.authorName} · {p.readMinutes} min read</div>
+          </a>
+        ))}
+      </div>
+      <p class="j-empty muted" data-empty hidden>No stories in this category yet.</p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .journal { padding-block: clamp(36px, 5vw, 60px); }
+  .j-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 28px; flex-wrap: wrap; margin-bottom: 36px; }
+  .j-title { font-size: clamp(36px, 5vw, 52px); margin-top: 12px; }
+  .j-filters { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { padding: 7px 16px; border-radius: 99px; border: 1px solid var(--line-strong); background: var(--paper); font-size: 13px; font-weight: 500; color: var(--ink-soft); cursor: pointer; transition: all .15s; }
+  .pill:hover { border-color: var(--ink); color: var(--ink); }
+  .pill.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+
+  .feature { display: grid; grid-template-columns: 1.1fr 1fr; gap: 0; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--paper); margin-bottom: 36px; transition: border-color .15s, transform .15s; }
+  .feature:hover { border-color: var(--line-strong); }
+  .feature-img, .post-img { background: var(--paper-3) repeating-linear-gradient(135deg, transparent 0 11px, rgba(193,90,51,.05) 11px 22px); display: grid; place-items: center; }
+  .feature-img { min-height: 320px; }
+  .img-note { color: var(--ink-light); font-size: 11px; letter-spacing: .08em; }
+  .feature-body { padding: 36px; display: flex; flex-direction: column; }
+  .feature-title { font-size: 30px; line-height: 1.1; margin: 12px 0 14px; }
+  .feature-excerpt { font-size: 15px; line-height: 1.6; }
+  .byline { display: flex; align-items: center; gap: 12px; margin-top: auto; padding-top: 26px; }
+  .avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--accent-tint); color: var(--accent-deep); display: grid; place-items: center; font-family: var(--serif); font-size: 13px; flex-shrink: 0; }
+  .byline-name { font-size: 13.5px; font-weight: 600; }
+  .read-link { margin-left: auto; font-size: 13px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  .post-card { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--paper); transition: border-color .15s, transform .15s; display: flex; flex-direction: column; }
+  .post-card:hover { border-color: var(--line-strong); transform: translateY(-2px); }
+  .post-img { min-height: 150px; }
+  .post-meta { padding: 16px 18px 0; }
+  .post-title { font-size: 19px; line-height: 1.18; margin: 12px 18px 10px; }
+  .post-card .tiny { margin: 0 18px 18px; }
+
+  @media (max-width: 900px) { .feature { grid-template-columns: 1fr; } .feature-img { min-height: 200px; } .grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+</style>
+
+<script>
+  const filters = document.querySelector<HTMLDivElement>('[data-filters]');
+  const posts = Array.from(document.querySelectorAll<HTMLElement>('[data-post]'));
+  const empty = document.querySelector<HTMLParagraphElement>('[data-empty]');
+  filters?.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-cat]');
+    if (!btn) return;
+    filters.querySelectorAll('.pill').forEach((p) => p.classList.remove('active'));
+    btn.classList.add('active');
+    const cat = btn.dataset.cat;
+    let any = false;
+    posts.forEach((p) => {
+      const show = cat === 'all' || p.dataset.cat === cat;
+      p.style.display = show ? '' : 'none';
+      if (show) any = true;
+    });
+    if (empty) empty.hidden = any;
+  });
+</script>

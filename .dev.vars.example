@@ -1,0 +1,8 @@
+# Copy to .dev.vars and fill in. Wrangler + Astro's platform proxy read this in local dev.
+TURSO_DATABASE_URL = "libsql://your-db.turso.io"
+TURSO_AUTH_TOKEN = "your-token"
+# Optional — magic-link email in production (free tier at resend.com). Without it, dev shows the link in-page.
+RESEND_API_KEY = ""
+EMAIL_FROM = "DocFriends <hello@docfriends.co>"
+# Optional — absolute URL for links in emails. Defaults to request origin.
+SITE_URL = ""

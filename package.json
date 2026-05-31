@@ -1,0 +1,26 @@
+{
+  "name": "docfriends",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "wrangler pages dev ./dist",
+    "deploy": "astro build && wrangler pages deploy ./dist --project-name=docfriends",
+    "check": "astro check",
+    "db:push": "turso db shell $TURSO_DATABASE_NAME < db/schema.sql",
+    "db:seed": "turso db shell $TURSO_DATABASE_NAME < db/seed.sql"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^12.2.0",
+    "@libsql/client": "^0.14.0",
+    "astro": "^5.1.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "typescript": "^5.7.0",
+    "wrangler": "^3.99.0"
+  }
+}

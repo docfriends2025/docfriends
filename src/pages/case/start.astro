@@ -1,0 +1,154 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { getEnv, hasDb, getDb } from '~/lib/db';
+import { getPackages } from '~/lib/content';
+import { formatUSD, parseJSON } from '~/lib/format';
+
+export const prerender = false;
+
+const env = getEnv(Astro.locals);
+const user = Astro.locals.user;
+const packages = await getPackages(env);
+
+// Pull the draft captured on the homepage, if any.
+const draftId = Astro.cookies.get('df_draft')?.value ?? null;
+let draft: { symptoms: string | null; diagnosis: string | null; medications: string | null; questions: string[]; files: string[] } | null = null;
+
+if (draftId && hasDb(env)) {
+  try {
+    const db = getDb(env);
+    const res = await db.execute({ sql: 'SELECT symptoms, diagnosis, medications, questions_json FROM cases WHERE id = ?', args: [draftId] });
+    const row = res.rows[0];
+    if (row) {
+      const att = await db.execute({ sql: 'SELECT file_name FROM case_attachments WHERE case_id = ?', args: [draftId] });
+      draft = {
+        symptoms: row.symptoms ? String(row.symptoms) : null,
+        diagnosis: row.diagnosis ? String(row.diagnosis) : null,
+        medications: row.medications ? String(row.medications) : null,
+        questions: parseJSON<string[]>(row.questions_json ? String(row.questions_json) : null, []),
+        files: att.rows.map((a) => String(a.file_name)),
+      };
+    }
+  } catch (e) { console.error('case/start draft load', e); }
+}
+
+const steps = [
+  { n: '1', label: 'Your case',    done: !!draft },
+  { n: '2', label: 'Sign up',      done: !!user, active: !user },
+  { n: '3', label: 'Choose & pay', done: false, active: !!user },
+];
+---
+
+<BaseLayout title="Start a case — DocFriends" chrome={true}>
+  <section class="flow">
+    <div class="container">
+      <ol class="steps">
+        {steps.map((s) => (
+          <li class:list={['step', { done: s.done, active: s.active }]}>
+            <span class="step-n">{s.done ? '✓' : s.n}</span>{s.label}
+          </li>
+        ))}
+      </ol>
+
+      <div class="flow-grid">
+        <div class="flow-main">
+          <div class="eyebrow">Final step</div>
+          <h1 class="h-display flow-title">How many doctors <em>should look?</em></h1>
+          <p class="muted">Pick one panel — your case is already saved. You only pay now.</p>
+
+          <div class="pkg-row">
+            {packages.map((pkg) => (
+              <label class:list={['pkg', { featured: pkg.featured }]}>
+                <input type="radio" name="package" value={pkg.slug} checked={pkg.featured} />
+                {pkg.featured && <span class="badge">most chosen</span>}
+                <span class="pkg-name h-display">{pkg.name}</span>
+                <span class="muted tiny">{pkg.blurb}</span>
+                <span class="pkg-price h-display">{formatUSD(pkg.priceCents)}</span>
+                <span class="faint tiny">{pkg.opinionCount} opinion{pkg.opinionCount > 1 ? 's' : ''} · refund if late</span>
+              </label>
+            ))}
+          </div>
+
+          <div class="phase-note alert dev">
+            <strong>Checkout is the next build phase.</strong> Sign-up (screen 7), package &amp; payment (screen 8),
+            and the confirmation screen (screen 9) wire up next. Your case below is already saved to the database.
+          </div>
+
+          <div class="flow-cta">
+            {user
+              ? <a href="/dashboard" class="btn primary lg">Go to dashboard →</a>
+              : <a href="/sign-in?next=/case/start" class="btn primary lg">Continue · sign in →</a>}
+            <a href="/" class="btn ghost lg">← Edit case</a>
+          </div>
+        </div>
+
+        <aside class="flow-rail">
+          <div class="eyebrow">Your case · ready to go</div>
+          <h2 class="h-display rail-title">What you've told us so far</h2>
+          {draft ? (
+            <div class="rail-body">
+              {draft.files.length > 0 && (
+                <div class="rail-block">
+                  <div class="field-label">Reports &amp; scans</div>
+                  <div class="rail-files">{draft.files.map((f) => <span class="file-pill">📎 {f}</span>)}</div>
+                </div>
+              )}
+              {draft.symptoms && <div class="rail-block"><div class="field-label">Symptoms · your words</div><p class="rail-quote">"{draft.symptoms}"</p></div>}
+              {draft.diagnosis && <div class="rail-block"><div class="field-label">Existing diagnosis</div><p>{draft.diagnosis}</p></div>}
+              {draft.medications && <div class="rail-block"><div class="field-label">Current medications</div><p>{draft.medications}</p></div>}
+              {draft.questions.length > 0 && (
+                <div class="rail-block">
+                  <div class="field-label">Questions for the doctors</div>
+                  <ol class="rail-q">{draft.questions.map((q, i) => <li><span class="q-n mono">0{i + 1}</span>{q}</li>)}</ol>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div class="rail-empty muted">
+              <p>No case captured yet.</p>
+              <a href="/" class="btn ghost sm" style="margin-top:12px">← Start on the homepage</a>
+            </div>
+          )}
+          <div class="rail-foot faint tiny">Saved securely · only your doctors see this</div>
+        </aside>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .flow { padding-block: clamp(28px, 4vw, 48px); }
+  .steps { list-style: none; display: flex; gap: 14px; padding: 0; margin: 0 0 36px; flex-wrap: wrap; }
+  .step { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: var(--ink-light); }
+  .step-n { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line-strong); display: grid; place-items: center; font-size: 12px; }
+  .step.done { color: var(--ink); } .step.done .step-n { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .step.active { color: var(--accent-deep); } .step.active .step-n { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .flow-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: clamp(28px, 4vw, 56px); align-items: start; }
+  .flow-title { font-size: clamp(32px, 4.5vw, 46px); margin: 12px 0 10px; }
+  .pkg-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 26px 0; }
+  .pkg { position: relative; display: flex; flex-direction: column; gap: 3px; border: 1px solid var(--line-strong); border-radius: 12px; padding: 18px 16px 16px; cursor: pointer; transition: border-color .12s; }
+  .pkg:hover { border-color: var(--ink); }
+  .pkg input { position: absolute; opacity: 0; }
+  .pkg:has(input:checked) { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+  .badge { position: absolute; top: -10px; left: 14px; background: var(--accent-tint); color: var(--accent-deep); border: 1px solid var(--accent-soft); font-size: 10px; font-weight: 600; padding: 2px 9px; border-radius: 99px; }
+  .pkg-name { font-size: 21px; }
+  .pkg-price { font-size: 27px; margin-top: 8px; }
+  .phase-note { margin: 8px 0 24px; }
+  .flow-cta { display: flex; gap: 12px; flex-wrap: wrap; }
+
+  .flow-rail { border: 1px solid var(--line); border-radius: 14px; padding: 24px; background: var(--paper); position: sticky; top: 90px; }
+  .rail-title { font-size: 21px; margin: 6px 0 18px; }
+  .rail-block { margin-bottom: 16px; }
+  .rail-block .field-label { margin-bottom: 5px; }
+  .rail-block p { font-size: 14px; color: var(--ink-soft); }
+  .rail-quote { font-style: italic; }
+  .rail-files { display: flex; flex-wrap: wrap; gap: 6px; }
+  .file-pill { display: inline-flex; gap: 5px; padding: 4px 10px; background: var(--paper-2); border: 1px solid var(--line); border-radius: 99px; font-size: 12px; }
+  .rail-q { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 7px; font-size: 14px; }
+  .rail-q li { display: flex; gap: 9px; }
+  .q-n { color: var(--accent); font-size: 11px; padding-top: 2px; }
+  .rail-foot { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+
+  @media (max-width: 860px) { .flow-grid { grid-template-columns: 1fr; } .flow-rail { position: static; } .pkg-row { grid-template-columns: 1fr; } }
+</style>

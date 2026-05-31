@@ -1,0 +1,145 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { SITE } from '~/lib/site';
+
+export const prerender = false;
+
+const channels = [
+  { eyebrow: 'Support',              email: SITE.supportEmail, note: 'Average reply under 4 hours · seven days a week' },
+  { eyebrow: 'Doctors — join us',    email: SITE.doctorsEmail, note: 'Hiring across 18 specialties' },
+  { eyebrow: 'Press & partnerships', email: SITE.pressEmail,   note: 'Tell us what you are working on' },
+];
+const topics = ['A question about my case', 'Pricing & billing', 'Joining as a doctor', 'Press', 'Other'];
+---
+
+<BaseLayout title="Contact — DocFriends" description="Get in touch with the DocFriends team." activeNav="/contact">
+  <section class="contact">
+    <div class="container contact-grid">
+      <div class="contact-left">
+        <div class="eyebrow">Get in touch</div>
+        <h1 class="h-display c-title">Say hi <em>(or help).</em></h1>
+        <p class="muted c-lead">For case-specific questions, <a href="/sign-in" class="ul">log in first</a> — that way we can see your file.</p>
+
+        <div class="channels">
+          {channels.map((ch) => (
+            <div class="channel">
+              <div class="eyebrow ink">{ch.eyebrow}</div>
+              <a href={`mailto:${ch.email}`} class="channel-email">{ch.email}</a>
+              <div class="faint tiny">{ch.note}</div>
+            </div>
+          ))}
+          <div class="channel">
+            <div class="eyebrow ink">Office</div>
+            <div class="channel-email static">{SITE.office}</div>
+            <div class="faint tiny">By appointment only</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="contact-right">
+        <form class="note-card card" data-contact-form>
+          <h2 class="h-display note-title">Send a note</h2>
+          <p class="muted tiny" style="margin-bottom:20px">We read every message.</p>
+
+          <label class="field-label" for="ct-name">Your name</label>
+          <input id="ct-name" name="name" class="input-line" placeholder="Maya Rao" autocomplete="name" />
+
+          <label class="field-label" for="ct-email" style="margin-top:18px">Email</label>
+          <input id="ct-email" name="email" type="email" class="input-line" placeholder="you@email.com" autocomplete="email" required />
+
+          <label class="field-label" style="margin-top:18px">Topic</label>
+          <div class="topic-pills" data-topics>
+            {topics.map((t, i) => (
+              <button type="button" class:list={['pill', { active: i === 0 }]} data-topic={t}>{t}</button>
+            ))}
+          </div>
+          <input type="hidden" name="topic" value={topics[0]} data-topic-input />
+
+          <label class="field-label" for="ct-msg" style="margin-top:18px">Message</label>
+          <textarea id="ct-msg" name="message" class="input-box" rows="5" placeholder="Type here…" required></textarea>
+
+          <button type="submit" class="btn primary lg" style="margin-top:22px" data-submit>
+            <span class="l-default">Send →</span><span class="l-loading" hidden>Sending…</span>
+          </button>
+          <div class="alert error" data-error hidden style="margin-top:14px"></div>
+        </form>
+
+        <div class="sent-state card" data-sent hidden>
+          <div class="sent-ico">✓</div>
+          <h2 class="h-display">Note received.</h2>
+          <p class="muted">Thanks — we'll reply to <strong data-sent-to></strong> shortly. Support typically responds in under four hours.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .contact { padding-block: clamp(36px, 5vw, 64px); }
+  .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(36px, 6vw, 80px); align-items: start; }
+  .c-title { font-size: clamp(40px, 6vw, 58px); margin: 12px 0 14px; }
+  .c-lead { font-size: 15px; max-width: 360px; }
+  .ul { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+  .channels { display: flex; flex-direction: column; gap: 26px; margin-top: 40px; }
+  .channel-email { font-family: var(--serif); font-size: 21px; display: block; margin: 5px 0 4px; }
+  a.channel-email:hover { color: var(--accent); }
+  .channel-email.static { color: var(--ink); }
+
+  .note-card { padding: 32px; box-shadow: 0 24px 56px -30px rgba(26,34,56,.16); }
+  .note-title { font-size: 27px; }
+  .topic-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill { padding: 7px 14px; border-radius: 99px; border: 1px solid var(--line-strong); background: var(--paper); font-size: 13px; font-weight: 500; color: var(--ink-soft); cursor: pointer; transition: all .15s; }
+  .pill:hover { border-color: var(--ink); color: var(--ink); }
+  .pill.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .sent-state { padding: 40px 32px; text-align: center; }
+  .sent-state .sent-ico { width: 52px; height: 52px; margin: 0 auto 16px; border-radius: 50%; background: var(--success-soft); color: var(--success); display: grid; place-items: center; font-size: 24px; }
+  .sent-state h2 { font-size: 26px; margin-bottom: 8px; }
+
+  @media (max-width: 820px) { .contact-grid { grid-template-columns: 1fr; } }
+</style>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('[data-contact-form]');
+  const topics = document.querySelector<HTMLDivElement>('[data-topics]');
+  const topicInput = document.querySelector<HTMLInputElement>('[data-topic-input]');
+  const sent = document.querySelector<HTMLDivElement>('[data-sent]');
+  const sentTo = document.querySelector<HTMLElement>('[data-sent-to]');
+  const submit = form?.querySelector<HTMLButtonElement>('[data-submit]');
+  const errorEl = form?.querySelector<HTMLDivElement>('[data-error]');
+  const lDefault = submit?.querySelector('.l-default') as HTMLElement | null;
+  const lLoading = submit?.querySelector('.l-loading') as HTMLElement | null;
+
+  topics?.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-topic]');
+    if (!btn || !topicInput) return;
+    topics.querySelectorAll('.pill').forEach((p) => p.classList.remove('active'));
+    btn.classList.add('active');
+    topicInput.value = btn.dataset.topic ?? '';
+  });
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!submit) return;
+    if (errorEl) errorEl.hidden = true;
+    submit.disabled = true;
+    if (lDefault) lDefault.hidden = true;
+    if (lLoading) lLoading.hidden = false;
+    const fd = new FormData(form);
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: fd.get('name'), email: fd.get('email'), topic: fd.get('topic'), message: fd.get('message') }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Something went wrong.');
+      if (sentTo) sentTo.textContent = String(fd.get('email') || '');
+      if (form) form.hidden = true;
+      if (sent) sent.hidden = false;
+    } catch (err) {
+      if (errorEl) { errorEl.hidden = false; errorEl.textContent = err instanceof Error ? err.message : 'Network error.'; }
+      submit.disabled = false;
+      if (lDefault) lDefault.hidden = false;
+      if (lLoading) lLoading.hidden = true;
+    }
+  });
+</script>

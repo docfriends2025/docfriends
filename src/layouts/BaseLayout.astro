@@ -1,0 +1,44 @@
+---
+import '~/styles/global.css';
+import Nav from '~/components/Nav.astro';
+import Footer from '~/components/Footer.astro';
+import { SITE } from '~/lib/site';
+
+interface Props {
+  title?: string;
+  description?: string;
+  activeNav?: string;
+  /** Marketing chrome (nav + footer). Portals pass false and supply their own. */
+  chrome?: boolean;
+  /** Constrain main width for content pages. */
+  bodyClass?: string;
+}
+const {
+  title = `${SITE.name} — ${SITE.tagline}`,
+  description = 'Specialist second opinions, delivered in 24 hours. A panel of board-certified doctors reviews your case and writes back — clearly, kindly, without the rush.',
+  activeNav,
+  chrome = true,
+  bodyClass,
+} = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>{title}</title>
+  <meta name="description" content={description} />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:type" content="website" />
+  <meta name="theme-color" content="#fcfaf5" />
+</head>
+<body class={bodyClass}>
+  {chrome && <Nav activeNav={activeNav} />}
+  <main>
+    <slot />
+  </main>
+  {chrome && <Footer />}
+</body>
+</html>
