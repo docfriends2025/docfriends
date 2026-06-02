@@ -11,6 +11,7 @@ export interface JournalPost {
 export interface Package {
   slug: string; name: string; opinionCount: number; priceCents: number; blurb: string | null; featured: boolean;
 }
+export interface Specialty { slug: string; name: string; }
 
 export const FAQ_CATEGORIES = [
   { slug: 'getting_started',  label: 'Getting started' },
@@ -44,6 +45,16 @@ const FALLBACK_PACKAGES: Package[] = [
   { slug: 'board',   name: 'Board',   opinionCount: 5, priceCents: 54900, blurb: 'A full panel', featured: false },
 ];
 
+const FALLBACK_SPECIALTIES: Specialty[] = [
+  { slug: 'cardiology', name: 'Cardiology' }, { slug: 'oncology', name: 'Oncology' },
+  { slug: 'neurology', name: 'Neurology' }, { slug: 'orthopedics', name: 'Orthopedics' },
+  { slug: 'endocrinology', name: 'Endocrinology' }, { slug: 'pulmonology', name: 'Pulmonology' },
+  { slug: 'gastroenterology', name: 'Gastroenterology' }, { slug: 'internal_med', name: 'Internal Medicine' },
+  { slug: 'dermatology', name: 'Dermatology' }, { slug: 'otolaryngology', name: 'Otolaryngology (ENT)' },
+  { slug: 'urology', name: 'Urology' }, { slug: 'gynecology', name: 'Gynecology' },
+  { slug: 'ophthalmology', name: 'Ophthalmology' },
+];
+
 export async function getFaqs(env: Env): Promise<Faq[]> {
   if (!hasDb(env)) return FALLBACK_FAQS;
   try {
@@ -75,4 +86,13 @@ export async function getPackages(env: Env): Promise<Package[]> {
     if (!res.rows.length) return FALLBACK_PACKAGES;
     return res.rows.map((r) => ({ slug: String(r.slug), name: String(r.name), opinionCount: Number(r.opinion_count), priceCents: Number(r.price_cents), blurb: r.blurb ? String(r.blurb) : null, featured: !!Number(r.featured) }));
   } catch (e) { console.error('getPackages', e); return FALLBACK_PACKAGES; }
+}
+
+export async function getSpecialties(env: Env): Promise<Specialty[]> {
+  if (!hasDb(env)) return FALLBACK_SPECIALTIES;
+  try {
+    const res = await getDb(env).execute('SELECT slug, name FROM specialties WHERE active = 1 ORDER BY position');
+    if (!res.rows.length) return FALLBACK_SPECIALTIES;
+    return res.rows.map((r) => ({ slug: String(r.slug), name: String(r.name) }));
+  } catch (e) { console.error('getSpecialties', e); return FALLBACK_SPECIALTIES; }
 }

@@ -35,11 +35,11 @@ export const SPECIALISTS: Record<string, Specialist> = {
   orthopedist:        { key: 'orthopedist',        label: 'Orthopedic surgeon', blurb: 'Bones, joints & spine',                  specialtySlug: 'orthopedics' },
   pulmonologist:      { key: 'pulmonologist',      label: 'Pulmonologist',      blurb: 'Lungs & breathing',                      specialtySlug: 'pulmonology' },
   endocrinologist:    { key: 'endocrinologist',    label: 'Endocrinologist',    blurb: 'Hormones, thyroid & metabolism',         specialtySlug: 'endocrinology' },
-  dermatologist:      { key: 'dermatologist',      label: 'Dermatologist',      blurb: 'Skin, hair & nails',                     specialtySlug: null },
-  ent:                { key: 'ent',                label: 'ENT specialist',     blurb: 'Ear, nose & throat',                     specialtySlug: null },
-  urologist:          { key: 'urologist',          label: 'Urologist',          blurb: 'Urinary tract & male repro',             specialtySlug: null },
-  gynecologist:       { key: 'gynecologist',       label: 'Gynecologist',       blurb: "Women's reproductive health",            specialtySlug: null },
-  ophthalmologist:    { key: 'ophthalmologist',    label: 'Ophthalmologist',    blurb: 'Eyes & vision',                          specialtySlug: null },
+  dermatologist:      { key: 'dermatologist',      label: 'Dermatologist',      blurb: 'Skin, hair & nails',                     specialtySlug: 'dermatology' },
+  ent:                { key: 'ent',                label: 'ENT specialist',     blurb: 'Ear, nose & throat',                     specialtySlug: 'otolaryngology' },
+  urologist:          { key: 'urologist',          label: 'Urologist',          blurb: 'Urinary tract & male repro',             specialtySlug: 'urology' },
+  gynecologist:       { key: 'gynecologist',       label: 'Gynecologist',       blurb: "Women's reproductive health",            specialtySlug: 'gynecology' },
+  ophthalmologist:    { key: 'ophthalmologist',    label: 'Ophthalmologist',    blurb: 'Eyes & vision',                          specialtySlug: 'ophthalmology' },
   general:            { key: 'general',            label: 'General physician',  blurb: 'Internal medicine & first assessment',   specialtySlug: 'internal_med' },
 };
 

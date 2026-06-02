@@ -1,5 +1,7 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
+import { getEnv } from '~/lib/db';
+import { getSpecialties } from '~/lib/content';
 
 export const prerender = false;
 
@@ -8,6 +10,11 @@ const stats = [
   { n: '24 h',  l: 'average turnaround' },
   { n: '4.9★', l: 'from 1,200+ clients' },
 ];
+
+// Specialist picker options + optional pre-selection from the finder hand-off.
+const specialties = await getSpecialties(getEnv(Astro.locals));
+const preselectRaw = Astro.url.searchParams.get('specialty');
+const preselect = preselectRaw && specialties.some((s) => s.slug === preselectRaw) ? preselectRaw : '';
 ---
 
 <BaseLayout activeNav="/">
@@ -81,6 +88,14 @@ const stats = [
             <div class="q-row"><span class="q-n mono">03</span><input name="q3" class="input-line" placeholder="Add another question…" /></div>
           </div>
 
+          <label class="field-label" for="cf-specialty">Which specialist are you looking for? <span class="opt">(optional)</span></label>
+          <select id="cf-specialty" name="specialty" class="input-box cf-select">
+            <option value="">Not sure — let your team match me</option>
+            {specialties.map((s) => (
+              <option value={s.slug} selected={s.slug === preselect}>{s.name}</option>
+            ))}
+          </select>
+
           <div class="cf-foot">
             <span class="faint tiny">✓ Encrypted · only your doctors see this</span>
             <button type="submit" class="btn primary" data-submit>
@@ -131,6 +146,8 @@ const stats = [
   .file-pill { display: inline-flex; gap: 6px; align-items: center; padding: 5px 11px; background: var(--paper-2); border: 1px solid var(--line); border-radius: 99px; font-size: 12px; }
 
   textarea#cf-symptoms { min-height: 78px; }
+  .cf-select { cursor: pointer; appearance: none; -webkit-appearance: none; background-repeat: no-repeat; background-position: right 14px center; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238d92a3' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); padding-right: 38px; }
+  .cf-select:has(option[value='']:checked) { color: var(--ink-light); }
   .q-rows { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
   .q-row { display: flex; align-items: center; gap: 12px; }
   .q-n { color: var(--accent); font-size: 11px; }
@@ -152,11 +169,11 @@ const stats = [
   const lDefault = submit?.querySelector('.l-default') as HTMLElement | null;
   const lLoading = submit?.querySelector('.l-loading') as HTMLElement | null;
 
-  // Seed from the "Find a specialist" hand-off: prefill the symptom and remember
-  // the recommended specialty so it rides along onto the draft case.
+  // Seed the symptom textarea from the "Find a specialist" hand-off (?symptom=).
+  // The recommended specialty (?specialty=) is pre-selected server-side on the
+  // <select>, so we just read that field at submit time.
   const seedParams = new URLSearchParams(location.search);
   const symptomSeed = seedParams.get('symptom');
-  const specialtySeed = (seedParams.get('specialty') || '').trim().toLowerCase();
   if (symptomSeed) {
     const ta = document.querySelector<HTMLTextAreaElement>('#cf-symptoms');
     if (ta && !ta.value) {
@@ -204,7 +221,7 @@ const stats = [
           medications: String(fd.get('medications') || ''),
           questions,
           files: fileNames,
-          specialty: specialtySeed || undefined,
+          specialty: String(fd.get('specialty') || '') || undefined,
         }),
       });
       const data = await res.json() as { ok?: boolean; error?: string; next?: string };

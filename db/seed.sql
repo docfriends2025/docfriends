@@ -16,7 +16,12 @@ INSERT OR IGNORE INTO specialties (slug, name, description, position, active) VA
   ('endocrinology',    'Endocrinology',    'Hormones, thyroid, diabetes',     50, 1),
   ('pulmonology',      'Pulmonology',      'Lungs & respiratory',             60, 1),
   ('gastroenterology', 'Gastroenterology', 'Digestive system',                70, 1),
-  ('internal_med',     'Internal Medicine','General internal medicine',       80, 1);
+  ('internal_med',     'Internal Medicine','General internal medicine',       80, 1),
+  ('dermatology',      'Dermatology',        'Skin, hair & nails',             90, 1),
+  ('otolaryngology',   'Otolaryngology (ENT)','Ear, nose & throat',           100, 1),
+  ('urology',          'Urology',            'Urinary tract & male reproductive',110, 1),
+  ('gynecology',       'Gynecology',         'Women''s reproductive health',   120, 1),
+  ('ophthalmology',    'Ophthalmology',      'Eyes & vision',                  130, 1);
 
 -- ─── FAQs (wireframe screen 4) ───────────────────────────────────────
 INSERT OR REPLACE INTO faqs (id, category, question, answer, position) VALUES

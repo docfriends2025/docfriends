@@ -34,10 +34,10 @@ export const POST: APIRoute = async ({ request, cookies, locals, clientAddress }
   const diagnosis = str(body.diagnosis, 240);
   const medications = str(body.medications, 1000);
   const questions = strArr(body.questions, 3, 500);
-  // Optional specialty hint from the "Find a specialist" tool. Constrained to a
-  // slug shape so junk never reaches the cases.specialty_slug column.
+  // Optional specialist choice (intake dropdown or "Find a specialist" hand-off).
+  // Slug-shaped pre-filter; validated against the specialties table below.
   const specialtyRaw = str(body.specialty, 40);
-  const specialty = specialtyRaw && /^[a-z_]{2,40}$/.test(specialtyRaw) ? specialtyRaw : null;
+  let specialty = specialtyRaw && /^[a-z_]{2,40}$/.test(specialtyRaw) ? specialtyRaw : null;
   const files = Array.isArray(body.files)
     ? body.files.filter((f): f is { name: unknown; size?: unknown } => typeof f === 'object' && f != null && 'name' in f)
         .map((f) => ({ name: str((f as { name: unknown }).name, 240), size: Number((f as { size?: unknown }).size) || null }))
@@ -53,6 +53,12 @@ export const POST: APIRoute = async ({ request, cookies, locals, clientAddress }
   const ts = now();
   try {
     const db = getDb(env);
+    // Ignore any specialty that isn't a known, active specialty — leave it NULL
+    // so an admin can assign later.
+    if (specialty) {
+      const sp = await db.execute({ sql: 'SELECT 1 FROM specialties WHERE slug = ? AND active = 1', args: [specialty] });
+      if (!sp.rows.length) specialty = null;
+    }
     await db.execute({
       sql: `INSERT INTO cases (id, user_id, title, status, specialty_slug, symptoms, diagnosis, medications, questions_json, source, client_ip, created_at, updated_at)
             VALUES (?, NULL, ?, 'draft', ?, ?, ?, ?, ?, 'home_hero', ?, ?, ?)`,
