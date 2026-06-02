@@ -1,0 +1,334 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { getEnv } from '~/lib/db';
+import { getPackages } from '~/lib/content';
+import { formatUSD } from '~/lib/format';
+import { SYMPTOM_GROUPS } from '~/lib/symptoms';
+
+export const prerender = false;
+
+const packages = await getPackages(getEnv(Astro.locals));
+const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
+---
+
+<BaseLayout
+  title="Find the right specialist — DocFriends"
+  description="Tell us your symptom, answer a few questions, and we'll point you to the right specialist. Guidance only — not a diagnosis."
+  activeNav="/find-a-specialist"
+>
+  <section class="finder" data-from-price={fromPrice}>
+    <!-- ── LEFT: symptom list ── -->
+    <aside class="sym-pane">
+      <div class="sym-head">
+        <div class="h-title">Symptoms</div>
+        <div class="sym-search">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="search" placeholder="Search 50+ symptoms…" data-search aria-label="Search symptoms" />
+        </div>
+      </div>
+      <div class="sym-list" data-list>
+        {SYMPTOM_GROUPS.map(([group, items], gi) => (
+          <div class="sym-group" data-group data-open={gi < 4 ? "" : undefined}>
+            <button type="button" class="sym-group-head" data-group-toggle>
+              <span class="eyebrow tiny">{group}</span>
+              <span class="caret">⌄</span>
+            </button>
+            <div class="sym-items">
+              {items.map((s) => (
+                <label class="sym-item" data-item data-name={s.toLowerCase()}>
+                  <input type="checkbox" name="symptom" value={s} />
+                  <span class="box"><svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>
+                  <span class="lbl">{s}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
+        <p class="sym-empty faint tiny" data-empty hidden>No symptom matches that search.</p>
+      </div>
+      <div class="sym-foot faint tiny">Pick one or more symptoms. We'll ask a few questions and point you to the right specialist.</div>
+    </aside>
+
+    <!-- ── MAIN ── -->
+    <div class="main-pane">
+      <header class="main-head">
+        <div>
+          <div class="eyebrow">Symptom checker → specialist finder</div>
+          <h1 class="h-display main-title">Find the right doctor for your symptom</h1>
+        </div>
+        <span class="chip">Not a diagnosis · guidance only</span>
+      </header>
+
+      <div class="main-body">
+        <ol class="rail" data-rail>
+          {['Symptom', 'A few questions', 'Likely causes', 'Your specialist'].map((s, i) => (
+            <li class="rail-step" data-step={i}>
+              <span class="rail-circle">{i + 1}</span><span class="rail-label">{s}</span>
+            </li>
+          ))}
+        </ol>
+
+        <!-- STAGE: select -->
+        <div class="stage" data-stage="select">
+          <div class="empty-pick card">
+            <div class="ep-icon">＋</div>
+            <h2 class="h-title">Start by choosing a symptom</h2>
+            <p class="muted">Select one or more from the list. The clearer you are, the better we can point you.</p>
+            <div class="chosen-row" data-chosen></div>
+            <button class="btn primary lg" data-to-questions disabled>Continue · a few questions →</button>
+          </div>
+        </div>
+
+        <!-- STAGE: questions -->
+        <div class="stage" data-stage="questions" hidden>
+          <div class="q-head">
+            <div class="eyebrow tiny">About your <span data-q-symptom></span></div>
+            <h2 class="h-title">A few quick questions</h2>
+          </div>
+          <div class="q-list" data-questions></div>
+          <div class="q-actions">
+            <button class="btn ghost" data-back-select>← Back</button>
+            <button class="btn primary lg" data-to-results disabled>See likely causes →</button>
+          </div>
+        </div>
+
+        <!-- STAGE: results -->
+        <div class="stage" data-stage="results" hidden>
+          <div class="results-grid">
+            <div class="col-left">
+              <div class="card recap" data-recap></div>
+              <div class="card causes" data-causes></div>
+            </div>
+            <div class="col-right" data-reco></div>
+          </div>
+          <button class="btn ghost" data-restart style="margin-top:18px">↺ Start over</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .finder { display: grid; grid-template-columns: 290px 1fr; min-height: calc(100vh - 64px); }
+  /* left */
+  .sym-pane { border-right: 1px solid var(--line); background: var(--paper); display: flex; flex-direction: column; position: sticky; top: 64px; height: calc(100vh - 64px); }
+  .sym-head { padding: 20px 18px 14px; border-bottom: 1px solid var(--line); }
+  .sym-search { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 9px 11px; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--ink-light); }
+  .sym-search input { border: 0; background: transparent; outline: none; font-size: 13px; width: 100%; color: var(--ink); }
+  .sym-list { flex: 1; overflow: auto; padding: 8px 10px; }
+  .sym-group { margin-bottom: 4px; }
+  .sym-group-head { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 8px; background: none; border: 0; cursor: pointer; }
+  .sym-group-head .caret { font-size: 13px; color: var(--ink-light); transition: transform .15s; }
+  .sym-group:not([data-open]) .caret { transform: rotate(-90deg); }
+  .sym-group:not([data-open]) .sym-items { display: none; }
+  .sym-items { display: flex; flex-direction: column; gap: 1px; margin-bottom: 6px; }
+  .sym-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; cursor: pointer; color: var(--ink-soft); font-size: 13px; }
+  .sym-item:hover { background: var(--paper-2); }
+  .sym-item input { position: absolute; opacity: 0; pointer-events: none; }
+  .sym-item .box { width: 15px; height: 15px; border-radius: 4px; border: 1.5px solid var(--line-strong); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .sym-item .box svg { opacity: 0; }
+  .sym-item:has(input:checked) { background: var(--ink); color: var(--paper); }
+  .sym-item:has(input:checked) .box { background: var(--accent); border-color: var(--accent); }
+  .sym-item:has(input:checked) .box svg { opacity: 1; }
+  .sym-item:has(input:checked) .lbl { font-weight: 600; }
+  .sym-foot { padding: 12px 16px; border-top: 1px solid var(--line); line-height: 1.5; }
+
+  /* main */
+  .main-pane { display: flex; flex-direction: column; min-width: 0; }
+  .main-head { padding: 18px 32px; border-bottom: 1px solid var(--line); background: var(--paper); display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+  .main-title { font-size: 24px; margin-top: 2px; }
+  .main-body { padding: 24px 32px 48px; }
+
+  .rail { list-style: none; display: flex; align-items: center; gap: 0; padding: 0; margin: 0 0 26px; flex-wrap: wrap; }
+  .rail-step { display: flex; align-items: center; gap: 8px; color: var(--ink-light); }
+  .rail-step:not(:last-child)::after { content: ''; width: 42px; height: 1px; background: var(--line); margin: 0 14px; }
+  .rail-circle { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line-strong); display: grid; place-items: center; font-size: 11px; }
+  .rail-label { font-size: 13px; font-weight: 500; }
+  .rail-step.done { color: var(--ink); } .rail-step.done .rail-circle { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .rail-step.active { color: var(--accent-deep); } .rail-step.active .rail-circle { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .empty-pick { text-align: center; padding: 44px 32px; max-width: 520px; margin: 8px auto; }
+  .ep-icon { width: 48px; height: 48px; margin: 0 auto 14px; border-radius: 12px; background: var(--accent-tint); color: var(--accent); display: grid; place-items: center; font-size: 24px; }
+  .empty-pick h2 { font-size: 19px; margin-bottom: 6px; }
+  .chosen-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 18px 0; }
+  .chosen-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 99px; background: var(--ink); color: var(--paper); font-size: 12.5px; }
+
+  .q-head { margin-bottom: 18px; }
+  .q-head h2 { font-size: 20px; margin-top: 2px; }
+  .q-list { display: flex; flex-direction: column; gap: 18px; max-width: 640px; }
+  .q-block .q-text { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+  .q-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .q-opt { padding: 9px 15px; border: 1px solid var(--line-strong); border-radius: 99px; background: var(--paper); font-size: 13.5px; cursor: pointer; transition: all .12s; }
+  .q-opt:hover { border-color: var(--ink); }
+  .q-opt.sel { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .q-actions { display: flex; gap: 12px; margin-top: 26px; }
+
+  .results-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 22px; align-items: start; }
+  .recap, .causes { padding: 20px; margin-bottom: 16px; }
+  .recap-row { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 10px; }
+  .recap-q { color: var(--ink-soft); font-size: 13.5px; flex: 1; }
+  .recap-a { font-size: 13.5px; font-weight: 500; text-align: right; max-width: 200px; }
+  .cause-row { margin-bottom: 12px; }
+  .cause-top { display: flex; justify-content: space-between; font-size: 13.5px; margin-bottom: 4px; }
+  .pbar { height: 7px; border-radius: 99px; background: var(--paper-2); overflow: hidden; }
+  .pbar > span { display: block; height: 100%; border-radius: 99px; }
+  .reco-card { padding: 22px; border: 1.5px solid var(--accent); border-radius: var(--radius); position: relative; background: var(--paper); }
+  .reco-badge { position: absolute; top: -11px; left: 22px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; padding: 3px 12px; border-radius: 99px; }
+  .reco-top { display: flex; gap: 14px; align-items: center; margin: 12px 0; }
+  .reco-ic { width: 52px; height: 52px; border-radius: 12px; background: var(--ink); color: var(--paper); display: grid; place-items: center; flex-shrink: 0; }
+  .reco-name { font-size: 27px; font-family: var(--serif); }
+  .reco-why { font-size: 14px; line-height: 1.6; color: var(--ink-soft); }
+  .reco-meta { display: flex; gap: 6px; justify-content: center; margin-top: 12px; }
+  .alts { margin-top: 16px; }
+  .alt-card { display: flex; justify-content: space-between; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; background: var(--paper); }
+  .alt-name { font-size: 14px; font-weight: 600; }
+  .alt-when { font-size: 12px; color: var(--ink-soft); margin-top: 1px; line-height: 1.4; }
+  .safety { margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: rgba(169,63,63,.08); color: var(--danger); font-size: 13px; line-height: 1.55; display: flex; gap: 10px; }
+  .safety strong { font-weight: 700; }
+  .urgent-banner { margin-bottom: 18px; padding: 14px 16px; border-radius: 12px; background: var(--danger); color: #fff; font-size: 13.5px; line-height: 1.5; }
+
+  @media (max-width: 980px) { .results-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 820px) {
+    .finder { grid-template-columns: 1fr; }
+    .sym-pane { position: static; height: auto; max-height: 320px; border-right: 0; border-bottom: 1px solid var(--line); }
+    .main-head, .main-body { padding-inline: 20px; }
+  }
+</style>
+
+<script>
+  import { questionsFor, recommend, SYMPTOMS } from '../lib/symptoms';
+
+  const root = document.querySelector<HTMLElement>('.finder')!;
+  const fromPrice = root.dataset.fromPrice ?? '$149';
+  const stages = {
+    select: root.querySelector<HTMLElement>('[data-stage="select"]')!,
+    questions: root.querySelector<HTMLElement>('[data-stage="questions"]')!,
+    results: root.querySelector<HTMLElement>('[data-stage="results"]')!,
+  };
+  const railSteps = Array.from(root.querySelectorAll<HTMLElement>('[data-step]'));
+  const checks = Array.from(root.querySelectorAll<HTMLInputElement>('input[name="symptom"]'));
+  const chosenRow = root.querySelector<HTMLElement>('[data-chosen]')!;
+  const toQ = root.querySelector<HTMLButtonElement>('[data-to-questions]')!;
+  const toR = root.querySelector<HTMLButtonElement>('[data-to-results]')!;
+
+  let answers: Record<string, string> = {};
+
+  const selectedNames = () => checks.filter((c) => c.checked).map((c) => c.value);
+  const primaryOf = (sel: string[]) => sel.find((s) => SYMPTOMS[s]) ?? sel[0];
+
+  function setStage(stage: 'select' | 'questions' | 'results') {
+    Object.entries(stages).forEach(([k, el]) => { el.hidden = k !== stage; });
+    const idx = stage === 'select' ? 0 : stage === 'questions' ? 1 : 3;
+    railSteps.forEach((el, i) => {
+      el.classList.toggle('active', i === idx);
+      el.classList.toggle('done', i < idx);
+    });
+  }
+
+  // selection
+  function syncSelection() {
+    const sel = selectedNames();
+    chosenRow.innerHTML = sel.map((s) => `<span class="chosen-chip">${s}</span>`).join('');
+    toQ.disabled = sel.length === 0;
+  }
+  checks.forEach((c) => c.addEventListener('change', syncSelection));
+
+  // group toggles
+  root.querySelectorAll<HTMLButtonElement>('[data-group-toggle]').forEach((btn) =>
+    btn.addEventListener('click', () => {
+      const g = btn.closest<HTMLElement>('[data-group]')!;
+      if (g.hasAttribute('data-open')) g.removeAttribute('data-open'); else g.setAttribute('data-open', '');
+    }));
+
+  // search
+  const search = root.querySelector<HTMLInputElement>('[data-search]')!;
+  const items = Array.from(root.querySelectorAll<HTMLElement>('[data-item]'));
+  const groups = Array.from(root.querySelectorAll<HTMLElement>('[data-group]'));
+  const emptyMsg = root.querySelector<HTMLElement>('[data-empty]')!;
+  search.addEventListener('input', () => {
+    const q = search.value.trim().toLowerCase();
+    let any = false;
+    items.forEach((it) => { const m = !q || (it.dataset.name ?? '').includes(q); it.style.display = m ? '' : 'none'; if (m) any = true; });
+    groups.forEach((g) => {
+      const vis = Array.from(g.querySelectorAll<HTMLElement>('[data-item]')).some((i) => i.style.display !== 'none');
+      g.style.display = vis ? '' : 'none';
+      if (q && vis) g.setAttribute('data-open', '');
+    });
+    emptyMsg.hidden = any;
+  });
+
+  // questions
+  function renderQuestions() {
+    const sel = selectedNames();
+    const primary = primaryOf(sel);
+    root.querySelector<HTMLElement>('[data-q-symptom]')!.textContent = primary.toLowerCase();
+    const qs = questionsFor(primary);
+    answers = {};
+    const wrap = root.querySelector<HTMLElement>('[data-questions]')!;
+    wrap.innerHTML = qs.map((q) => `
+      <div class="q-block" data-q="${q.id}">
+        <div class="q-text">${q.q}</div>
+        <div class="q-opts">${q.options.map((o) => `<button type="button" class="q-opt" data-opt="${encodeURIComponent(o.label)}">${o.label}</button>`).join('')}</div>
+      </div>`).join('');
+    wrap.querySelectorAll<HTMLButtonElement>('.q-opt').forEach((btn) => btn.addEventListener('click', () => {
+      const block = btn.closest<HTMLElement>('[data-q]')!;
+      block.querySelectorAll('.q-opt').forEach((b) => b.classList.remove('sel'));
+      btn.classList.add('sel');
+      answers[block.dataset.q!] = decodeURIComponent(btn.dataset.opt!);
+      toR.disabled = Object.keys(answers).length < qs.length;
+    }));
+    toR.disabled = true;
+  }
+
+  // results
+  function renderResults() {
+    const sel = selectedNames();
+    const rec = recommend(sel, answers);
+    if (!rec) return;
+    const qs = questionsFor(rec.primarySymptom);
+
+    root.querySelector<HTMLElement>('[data-recap]')!.innerHTML = `
+      <div class="eyebrow tiny" style="margin-bottom:12px">We asked · you answered — <b>${rec.primarySymptom}</b></div>
+      ${qs.map((q) => `<div class="recap-row"><span class="recap-q">${q.q}</span><span class="recap-a">${answers[q.id] ?? '—'}</span></div>`).join('')}`;
+
+    root.querySelector<HTMLElement>('[data-causes]')!.innerHTML = `
+      <div class="eyebrow tiny" style="margin-bottom:4px">Narrowed to</div>
+      <div class="h-title" style="font-size:16px;margin-bottom:14px">${rec.causes.length} most likely</div>
+      ${rec.causes.map((c) => {
+        const color = c.tone === 'green' ? 'var(--success)' : c.tone === 'yellow' ? 'var(--warn)' : 'var(--ink-light)';
+        return `<div class="cause-row"><div class="cause-top"><span>${c.name}</span><span class="muted">${c.pct}% match</span></div><div class="pbar"><span style="width:${c.pct}%;background:${color}"></span></div></div>`;
+      }).join('')}
+      <div class="faint tiny" style="margin-top:12px;line-height:1.5">These are possibilities, not a diagnosis. A specialist confirms.</div>`;
+
+    const sp = rec.specialist;
+    const ctaHref = sp.specialtySlug ? `/case/start?specialty=${sp.specialtySlug}` : '/case/start';
+    root.querySelector<HTMLElement>('[data-reco]')!.innerHTML = `
+      ${rec.urgent ? `<div class="urgent-banner"><strong>This may need urgent care.</strong> ${rec.redFlag ?? 'Based on your answers, please seek prompt medical attention rather than waiting for an opinion.'}</div>` : ''}
+      <div class="reco-card">
+        <span class="reco-badge">start here</span>
+        <div class="eyebrow tiny" style="color:var(--accent)">Recommended specialist</div>
+        <div class="reco-top">
+          <span class="reco-ic"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3v6a6 6 0 0 0 12 0V3"/><path d="M6 3H4m2 0h2m8 0h2m-2 0h-2"/><path d="M12 15v3a4 4 0 0 0 8 0v-1"/><circle cx="20" cy="14" r="2"/></svg></span>
+          <div><div class="reco-name">${sp.label}</div><div class="muted" style="font-size:13.5px">${sp.blurb}</div></div>
+        </div>
+        <div class="reco-why">${SYMPTOMS[rec.primarySymptom]?.rationale ?? `A ${sp.label.toLowerCase()} is the right specialist to assess this.`}</div>
+        <a href="${ctaHref}" class="btn primary lg" style="margin-top:18px;width:100%;justify-content:center">Get an opinion from a ${sp.label.toLowerCase()} →</a>
+        <div class="reco-meta"><span class="tiny muted">Specialists on DocFriends · from</span><span class="tiny" style="font-weight:600">${fromPrice}</span></div>
+      </div>
+      ${rec.alternatives.length ? `<div class="alts"><div class="eyebrow tiny" style="margin-bottom:10px">If symptoms change, also consider</div>
+        ${rec.alternatives.map((a) => `<div class="alt-card"><div><div class="alt-name">${a.specialist.label}</div><div class="alt-when">${a.when}</div></div><a href="${a.specialist.specialtySlug ? `/case/start?specialty=${a.specialist.specialtySlug}` : '/case/start'}" class="btn ghost sm">View →</a></div>`).join('')}</div>` : ''}
+      ${rec.redFlag && !rec.urgent ? `<div class="safety"><strong>!</strong><div>${rec.redFlag}</div></div>` : ''}`;
+  }
+
+  // wiring
+  toQ.addEventListener('click', () => { renderQuestions(); setStage('questions'); });
+  toR.addEventListener('click', () => { renderResults(); setStage('results'); });
+  root.querySelector('[data-back-select]')!.addEventListener('click', () => setStage('select'));
+  root.querySelector('[data-restart]')!.addEventListener('click', () => {
+    checks.forEach((c) => { c.checked = false; });
+    answers = {}; syncSelection(); setStage('select');
+  });
+
+  syncSelection();
+  setStage('select');
+</script>

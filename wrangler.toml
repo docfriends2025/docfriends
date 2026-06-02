@@ -2,3 +2,8 @@ name = "docfriends"
 compatibility_date = "2025-01-15"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "./dist"
+
+# Astro sessions store — bound for both production and preview deployments.
+[[kv_namespaces]]
+binding = "SESSION"
+id = "dae6273a665f45a49de594e53514e441"

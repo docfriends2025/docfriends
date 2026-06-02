@@ -14,6 +14,7 @@ export const SITE = {
 // Primary marketing nav (public pages).
 export const NAV_LINKS = [
   { href: '/',        label: 'Home',    match: ['/'] },
+  { href: '/find-a-specialist', label: 'Find a specialist', match: ['/find-a-specialist'] },
   { href: '/pricing', label: 'Pricing', match: ['/pricing'] },
   { href: '/faqs',    label: 'FAQs',    match: ['/faqs'] },
   { href: '/journal', label: 'Journal', match: ['/journal'] },
