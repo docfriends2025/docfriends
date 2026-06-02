@@ -10,7 +10,7 @@ const DRAFT_COOKIE = 'df_draft';
 
 interface Payload {
   symptoms?: unknown; diagnosis?: unknown; medications?: unknown;
-  questions?: unknown; files?: unknown;
+  questions?: unknown; files?: unknown; specialty?: unknown;
 }
 const str = (v: unknown, max: number): string | null => {
   if (typeof v !== 'string') return null;
@@ -34,6 +34,10 @@ export const POST: APIRoute = async ({ request, cookies, locals, clientAddress }
   const diagnosis = str(body.diagnosis, 240);
   const medications = str(body.medications, 1000);
   const questions = strArr(body.questions, 3, 500);
+  // Optional specialty hint from the "Find a specialist" tool. Constrained to a
+  // slug shape so junk never reaches the cases.specialty_slug column.
+  const specialtyRaw = str(body.specialty, 40);
+  const specialty = specialtyRaw && /^[a-z_]{2,40}$/.test(specialtyRaw) ? specialtyRaw : null;
   const files = Array.isArray(body.files)
     ? body.files.filter((f): f is { name: unknown; size?: unknown } => typeof f === 'object' && f != null && 'name' in f)
         .map((f) => ({ name: str((f as { name: unknown }).name, 240), size: Number((f as { size?: unknown }).size) || null }))
@@ -50,9 +54,9 @@ export const POST: APIRoute = async ({ request, cookies, locals, clientAddress }
   try {
     const db = getDb(env);
     await db.execute({
-      sql: `INSERT INTO cases (id, user_id, title, status, symptoms, diagnosis, medications, questions_json, source, client_ip, created_at, updated_at)
-            VALUES (?, NULL, ?, 'draft', ?, ?, ?, ?, 'home_hero', ?, ?, ?)`,
-      args: [id, symptoms.slice(0, 60), symptoms, diagnosis, medications, JSON.stringify(questions), clientAddress ?? null, ts, ts],
+      sql: `INSERT INTO cases (id, user_id, title, status, specialty_slug, symptoms, diagnosis, medications, questions_json, source, client_ip, created_at, updated_at)
+            VALUES (?, NULL, ?, 'draft', ?, ?, ?, ?, ?, 'home_hero', ?, ?, ?)`,
+      args: [id, symptoms.slice(0, 60), specialty, symptoms, diagnosis, medications, JSON.stringify(questions), clientAddress ?? null, ts, ts],
     });
     for (const f of files) {
       await db.execute({

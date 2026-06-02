@@ -11,7 +11,7 @@ const stats = [
 ---
 
 <BaseLayout activeNav="/">
-  <section class="hero">
+  <section class="hero" id="start">
     <div class="container hero-grid">
       <!-- LEFT: editorial pitch -->
       <div class="hero-left">
@@ -152,6 +152,22 @@ const stats = [
   const lDefault = submit?.querySelector('.l-default') as HTMLElement | null;
   const lLoading = submit?.querySelector('.l-loading') as HTMLElement | null;
 
+  // Seed from the "Find a specialist" hand-off: prefill the symptom and remember
+  // the recommended specialty so it rides along onto the draft case.
+  const seedParams = new URLSearchParams(location.search);
+  const symptomSeed = seedParams.get('symptom');
+  const specialtySeed = (seedParams.get('specialty') || '').trim().toLowerCase();
+  if (symptomSeed) {
+    const ta = document.querySelector<HTMLTextAreaElement>('#cf-symptoms');
+    if (ta && !ta.value) {
+      ta.value = symptomSeed.slice(0, 4000);
+      // Move the caret to the end so they can keep typing details.
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);
+    }
+    form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   function renderFiles() {
     if (!fileList || !filesInput) return;
     const names = Array.from(filesInput.files ?? []).map((f) => f.name);
@@ -188,6 +204,7 @@ const stats = [
           medications: String(fd.get('medications') || ''),
           questions,
           files: fileNames,
+          specialty: specialtySeed || undefined,
         }),
       });
       const data = await res.json() as { ok?: boolean; error?: string; next?: string };

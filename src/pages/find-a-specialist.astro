@@ -301,7 +301,18 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
       <div class="faint tiny" style="margin-top:12px;line-height:1.5">These are possibilities, not a diagnosis. A specialist confirms.</div>`;
 
     const sp = rec.specialist;
-    const ctaHref = sp.specialtySlug ? `/case/start?specialty=${sp.specialtySlug}` : '/case/start';
+    // Hand off into the homepage case intake, prefilled with the chosen symptom(s)
+    // and the recommended specialty — that's what creates the draft case the
+    // sign-up → checkout funnel needs.
+    const symptomSeed = selectedNames().join(', ');
+    const intakeHref = (slug: string | null) => {
+      const p = new URLSearchParams();
+      if (symptomSeed) p.set('symptom', symptomSeed);
+      if (slug) p.set('specialty', slug);
+      const qs = p.toString();
+      return qs ? `/?${qs}#start` : '/#start';
+    };
+    const ctaHref = intakeHref(sp.specialtySlug);
     root.querySelector<HTMLElement>('[data-reco]')!.innerHTML = `
       ${rec.urgent ? `<div class="urgent-banner"><strong>This may need urgent care.</strong> ${rec.redFlag ?? 'Based on your answers, please seek prompt medical attention rather than waiting for an opinion.'}</div>` : ''}
       <div class="reco-card">
@@ -316,7 +327,7 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
         <div class="reco-meta"><span class="tiny muted">Specialists on DocFriends · from</span><span class="tiny" style="font-weight:600">${fromPrice}</span></div>
       </div>
       ${rec.alternatives.length ? `<div class="alts"><div class="eyebrow tiny" style="margin-bottom:10px">If symptoms change, also consider</div>
-        ${rec.alternatives.map((a) => `<div class="alt-card"><div><div class="alt-name">${a.specialist.label}</div><div class="alt-when">${a.when}</div></div><a href="${a.specialist.specialtySlug ? `/case/start?specialty=${a.specialist.specialtySlug}` : '/case/start'}" class="btn ghost sm">View →</a></div>`).join('')}</div>` : ''}
+        ${rec.alternatives.map((a) => `<div class="alt-card"><div><div class="alt-name">${a.specialist.label}</div><div class="alt-when">${a.when}</div></div><a href="${intakeHref(a.specialist.specialtySlug)}" class="btn ghost sm">View →</a></div>`).join('')}</div>` : ''}
       ${rec.redFlag && !rec.urgent ? `<div class="safety"><strong>!</strong><div>${rec.redFlag}</div></div>` : ''}`;
   }
 
