@@ -1,0 +1,25 @@
+---
+// Three-step progress indicator for the conversion funnel.
+interface Props { current: 1 | 2 | 3; }
+const { current } = Astro.props;
+const steps = [
+  { n: 1, label: 'Your case' },
+  { n: 2, label: 'Sign up' },
+  { n: 3, label: 'Choose & pay' },
+];
+---
+<ol class="steps">
+  {steps.map((s) => (
+    <li class:list={['step', { done: s.n < current, active: s.n === current }]}>
+      <span class="step-n">{s.n < current ? '✓' : s.n}</span>{s.label}
+    </li>
+  ))}
+</ol>
+
+<style>
+  .steps { list-style: none; display: flex; gap: 14px; padding: 0; margin: 0 0 36px; flex-wrap: wrap; }
+  .step { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: var(--ink-light); }
+  .step-n { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line-strong); display: grid; place-items: center; font-size: 12px; }
+  .step.done { color: var(--ink); } .step.done .step-n { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .step.active { color: var(--accent-deep); } .step.active .step-n { background: var(--accent); border-color: var(--accent); color: #fff; }
+</style>

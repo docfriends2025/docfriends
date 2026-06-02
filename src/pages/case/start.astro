@@ -1,116 +1,76 @@
 ---
+// Screen 7 — Sign up. Holds the anonymous case in a real account, then hands off
+// to checkout. Already signed in? Skip straight to package & payment.
 import BaseLayout from '~/layouts/BaseLayout.astro';
-import { getEnv, hasDb, getDb } from '~/lib/db';
-import { getPackages } from '~/lib/content';
-import { formatUSD, parseJSON } from '~/lib/format';
+import FlowSteps from '~/components/FlowSteps.astro';
+import CaseRail from '~/components/CaseRail.astro';
+import { getEnv } from '~/lib/db';
+import { loadDraft } from '~/lib/cases';
 
 export const prerender = false;
 
+if (Astro.locals.user) return Astro.redirect('/case/checkout');
+
 const env = getEnv(Astro.locals);
-const user = Astro.locals.user;
-const packages = await getPackages(env);
-
-// Pull the draft captured on the homepage, if any.
 const draftId = Astro.cookies.get('df_draft')?.value ?? null;
-let draft: { symptoms: string | null; diagnosis: string | null; medications: string | null; questions: string[]; files: string[] } | null = null;
-
-if (draftId && hasDb(env)) {
-  try {
-    const db = getDb(env);
-    const res = await db.execute({ sql: 'SELECT symptoms, diagnosis, medications, questions_json FROM cases WHERE id = ?', args: [draftId] });
-    const row = res.rows[0];
-    if (row) {
-      const att = await db.execute({ sql: 'SELECT file_name FROM case_attachments WHERE case_id = ?', args: [draftId] });
-      draft = {
-        symptoms: row.symptoms ? String(row.symptoms) : null,
-        diagnosis: row.diagnosis ? String(row.diagnosis) : null,
-        medications: row.medications ? String(row.medications) : null,
-        questions: parseJSON<string[]>(row.questions_json ? String(row.questions_json) : null, []),
-        files: att.rows.map((a) => String(a.file_name)),
-      };
-    }
-  } catch (e) { console.error('case/start draft load', e); }
-}
-
-const steps = [
-  { n: '1', label: 'Your case',    done: !!draft },
-  { n: '2', label: 'Sign up',      done: !!user, active: !user },
-  { n: '3', label: 'Choose & pay', done: false, active: !!user },
-];
+const draft = await loadDraft(env, draftId);
+const NEXT = '/case/checkout';
 ---
 
-<BaseLayout title="Start a case — DocFriends" chrome={true}>
+<BaseLayout title="Create your account — DocFriends" chrome={true}>
   <section class="flow">
     <div class="container">
-      <ol class="steps">
-        {steps.map((s) => (
-          <li class:list={['step', { done: s.done, active: s.active }]}>
-            <span class="step-n">{s.done ? '✓' : s.n}</span>{s.label}
-          </li>
-        ))}
-      </ol>
+      <FlowSteps current={2} />
 
       <div class="flow-grid">
         <div class="flow-main">
-          <div class="eyebrow">Final step</div>
-          <h1 class="h-display flow-title">How many doctors <em>should look?</em></h1>
-          <p class="muted">Pick one panel — your case is already saved. You only pay now.</p>
+          <div class="eyebrow">Step 2 of 3</div>
+          <h1 class="h-display flow-title">Create your account <em>to continue.</em></h1>
+          <p class="muted lead">We hold your case in a secure account so only you and your assigned doctors ever see it. No passwords — we email you a one-tap link.</p>
 
-          <div class="pkg-row">
-            {packages.map((pkg) => (
-              <label class:list={['pkg', { featured: pkg.featured }]}>
-                <input type="radio" name="package" value={pkg.slug} checked={pkg.featured} />
-                {pkg.featured && <span class="badge">most chosen</span>}
-                <span class="pkg-name h-display">{pkg.name}</span>
-                <span class="muted tiny">{pkg.blurb}</span>
-                <span class="pkg-price h-display">{formatUSD(pkg.priceCents)}</span>
-                <span class="faint tiny">{pkg.opinionCount} opinion{pkg.opinionCount > 1 ? 's' : ''} · refund if late</span>
-              </label>
-            ))}
+          <div class="su-card" data-card-default>
+            <div class="social-row">
+              <button type="button" class="social-btn" data-soon="Google sign-up is coming soon — use your email below for now.">
+                <span class="s-ico">G</span> Continue with Google
+              </button>
+              <button type="button" class="social-btn" data-soon="Apple sign-up is coming soon — use your email below for now.">
+                <span class="s-ico"></span> Continue with Apple
+              </button>
+            </div>
+            <div class="or"><span>or continue with email</span></div>
+
+            <form data-signup-form>
+              <label for="su-name" class="field-label">Your name <span class="opt">(optional)</span></label>
+              <input id="su-name" name="name" type="text" class="input-line" placeholder="Jane Okafor" autocomplete="name" maxlength="120" />
+              <label for="su-email" class="field-label" style="margin-top:16px">Your email</label>
+              <input id="su-email" name="email" type="email" class="input-line" placeholder="you@email.com" autocomplete="email" required />
+              <input type="hidden" name="next" value={NEXT} />
+              <button type="submit" class="btn primary lg block" style="margin-top:22px" data-submit>
+                <span class="l-default">Create account &amp; continue →</span>
+                <span class="l-loading" hidden>Sending…</span>
+              </button>
+              <div class="alert error" data-form-error hidden style="margin-top:14px"></div>
+            </form>
+
+            <div class="trust"><span class="check">✓</span><span class="faint tiny">No passwords · No spam · Delete account anytime</span></div>
           </div>
 
-          <div class="phase-note alert dev">
-            <strong>Checkout is the next build phase.</strong> Sign-up (screen 7), package &amp; payment (screen 8),
-            and the confirmation screen (screen 9) wire up next. Your case below is already saved to the database.
+          <!-- Sent state -->
+          <div class="su-card" data-card-sent hidden>
+            <div class="sent-ico">✉</div>
+            <h2 class="h-display sent-h">Check your email.</h2>
+            <p class="muted">We sent a sign-in link to <strong data-sent-email></strong>. It works once, expires in 15 minutes, and drops you straight onto checkout — your case comes with you.</p>
+            <div data-dev-fallback hidden style="margin-top:18px">
+              <div class="alert dev"><strong>DEV MODE</strong> — no email provider configured. Click below to continue. Set <code>RESEND_API_KEY</code> to send real email.</div>
+              <a href="#" class="btn primary lg block" data-dev-link style="margin-top:12px">Click to continue →</a>
+            </div>
+            <button type="button" class="btn ghost block" data-back style="margin-top:16px">← Use a different email</button>
           </div>
 
-          <div class="flow-cta">
-            {user
-              ? <a href="/dashboard" class="btn primary lg">Go to dashboard →</a>
-              : <a href="/sign-in?next=/case/start" class="btn primary lg">Continue · sign in →</a>}
-            <a href="/" class="btn ghost lg">← Edit case</a>
-          </div>
+          <a href="/" class="back-link faint tiny">← Edit my case</a>
         </div>
 
-        <aside class="flow-rail">
-          <div class="eyebrow">Your case · ready to go</div>
-          <h2 class="h-display rail-title">What you've told us so far</h2>
-          {draft ? (
-            <div class="rail-body">
-              {draft.files.length > 0 && (
-                <div class="rail-block">
-                  <div class="field-label">Reports &amp; scans</div>
-                  <div class="rail-files">{draft.files.map((f) => <span class="file-pill">📎 {f}</span>)}</div>
-                </div>
-              )}
-              {draft.symptoms && <div class="rail-block"><div class="field-label">Symptoms · your words</div><p class="rail-quote">"{draft.symptoms}"</p></div>}
-              {draft.diagnosis && <div class="rail-block"><div class="field-label">Existing diagnosis</div><p>{draft.diagnosis}</p></div>}
-              {draft.medications && <div class="rail-block"><div class="field-label">Current medications</div><p>{draft.medications}</p></div>}
-              {draft.questions.length > 0 && (
-                <div class="rail-block">
-                  <div class="field-label">Questions for the doctors</div>
-                  <ol class="rail-q">{draft.questions.map((q, i) => <li><span class="q-n mono">0{i + 1}</span>{q}</li>)}</ol>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div class="rail-empty muted">
-              <p>No case captured yet.</p>
-              <a href="/" class="btn ghost sm" style="margin-top:12px">← Start on the homepage</a>
-            </div>
-          )}
-          <div class="rail-foot faint tiny">Saved securely · only your doctors see this</div>
-        </aside>
+        <CaseRail draft={draft} />
       </div>
     </div>
   </section>
@@ -118,37 +78,77 @@ const steps = [
 
 <style>
   .flow { padding-block: clamp(28px, 4vw, 48px); }
-  .steps { list-style: none; display: flex; gap: 14px; padding: 0; margin: 0 0 36px; flex-wrap: wrap; }
-  .step { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: var(--ink-light); }
-  .step-n { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line-strong); display: grid; place-items: center; font-size: 12px; }
-  .step.done { color: var(--ink); } .step.done .step-n { background: var(--ink); border-color: var(--ink); color: var(--paper); }
-  .step.active { color: var(--accent-deep); } .step.active .step-n { background: var(--accent); border-color: var(--accent); color: #fff; }
-
   .flow-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: clamp(28px, 4vw, 56px); align-items: start; }
   .flow-title { font-size: clamp(32px, 4.5vw, 46px); margin: 12px 0 10px; }
-  .pkg-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 26px 0; }
-  .pkg { position: relative; display: flex; flex-direction: column; gap: 3px; border: 1px solid var(--line-strong); border-radius: 12px; padding: 18px 16px 16px; cursor: pointer; transition: border-color .12s; }
-  .pkg:hover { border-color: var(--ink); }
-  .pkg input { position: absolute; opacity: 0; }
-  .pkg:has(input:checked) { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
-  .badge { position: absolute; top: -10px; left: 14px; background: var(--accent-tint); color: var(--accent-deep); border: 1px solid var(--accent-soft); font-size: 10px; font-weight: 600; padding: 2px 9px; border-radius: 99px; }
-  .pkg-name { font-size: 21px; }
-  .pkg-price { font-size: 27px; margin-top: 8px; }
-  .phase-note { margin: 8px 0 24px; }
-  .flow-cta { display: flex; gap: 12px; flex-wrap: wrap; }
+  .lead { max-width: 46ch; font-size: 15px; line-height: 1.6; }
 
-  .flow-rail { border: 1px solid var(--line); border-radius: 14px; padding: 24px; background: var(--paper); position: sticky; top: 90px; }
-  .rail-title { font-size: 21px; margin: 6px 0 18px; }
-  .rail-block { margin-bottom: 16px; }
-  .rail-block .field-label { margin-bottom: 5px; }
-  .rail-block p { font-size: 14px; color: var(--ink-soft); }
-  .rail-quote { font-style: italic; }
-  .rail-files { display: flex; flex-wrap: wrap; gap: 6px; }
-  .file-pill { display: inline-flex; gap: 5px; padding: 4px 10px; background: var(--paper-2); border: 1px solid var(--line); border-radius: 99px; font-size: 12px; }
-  .rail-q { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 7px; font-size: 14px; }
-  .rail-q li { display: flex; gap: 9px; }
-  .q-n { color: var(--accent); font-size: 11px; padding-top: 2px; }
-  .rail-foot { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .su-card { max-width: 460px; margin: 26px 0 0; background: var(--paper); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 30px 28px; box-shadow: 0 24px 56px -26px rgba(26,34,56,.16); position: relative; }
+  .su-card::before { content: ''; position: absolute; inset: -1px -1px auto; height: 4px; background: var(--accent); border-radius: var(--radius) var(--radius) 0 0; }
+  .social-row { display: flex; flex-direction: column; gap: 10px; }
+  .social-btn { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 13px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--paper); font-size: 14.5px; font-weight: 500; cursor: pointer; transition: border-color .15s, background .15s; }
+  .social-btn:hover { border-color: var(--ink); background: var(--paper-2); }
+  .s-ico { width: 20px; height: 20px; display: grid; place-items: center; font-weight: 700; font-family: var(--serif); }
+  .or { display: flex; align-items: center; gap: 14px; margin: 20px 0; color: var(--ink-light); font-size: 12px; }
+  .or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+  .trust { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .trust .check { color: var(--success); font-weight: 700; }
+  .sent-ico { font-family: var(--serif); font-size: 46px; color: var(--accent); line-height: 1; margin-bottom: 14px; }
+  .sent-h { font-size: 28px; margin-bottom: 10px; }
+  .alert.dev code { background: rgba(0,0,0,.08); padding: 1px 5px; border-radius: 3px; }
+  .back-link { display: inline-block; margin-top: 20px; }
 
-  @media (max-width: 860px) { .flow-grid { grid-template-columns: 1fr; } .flow-rail { position: static; } .pkg-row { grid-template-columns: 1fr; } }
+  @media (max-width: 860px) { .flow-grid { grid-template-columns: 1fr; } }
 </style>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('[data-signup-form]');
+  const cardDefault = document.querySelector<HTMLDivElement>('[data-card-default]');
+  const cardSent = document.querySelector<HTMLDivElement>('[data-card-sent]');
+  const sentEmail = document.querySelector<HTMLElement>('[data-sent-email]');
+  const devFallback = document.querySelector<HTMLDivElement>('[data-dev-fallback]');
+  const devLink = document.querySelector<HTMLAnchorElement>('[data-dev-link]');
+  const backBtn = document.querySelector<HTMLButtonElement>('[data-back]');
+  const submit = form?.querySelector<HTMLButtonElement>('[data-submit]');
+  const errorEl = form?.querySelector<HTMLDivElement>('[data-form-error]');
+  const lDefault = submit?.querySelector('.l-default') as HTMLElement | null;
+  const lLoading = submit?.querySelector('.l-loading') as HTMLElement | null;
+
+  document.querySelectorAll<HTMLButtonElement>('[data-soon]').forEach((b) =>
+    b.addEventListener('click', () => alert(b.dataset.soon)));
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!submit) return;
+    if (errorEl) errorEl.hidden = true;
+    submit.disabled = true;
+    if (lDefault) lDefault.hidden = true;
+    if (lLoading) lLoading.hidden = false;
+    const fd = new FormData(form);
+    const name = String(fd.get('name') || '').trim();
+    // Carry the name across the email round-trip so checkout can prefill + save it.
+    if (name) document.cookie = `df_name=${encodeURIComponent(name.slice(0, 120))}; path=/; max-age=86400; samesite=lax`;
+    try {
+      const res = await fetch('/api/auth/request', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: String(fd.get('email') || '').trim(), next: String(fd.get('next') || '') }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string; email?: string; devLink?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Something went wrong.');
+      if (sentEmail) sentEmail.textContent = data.email ?? '';
+      if (cardDefault) cardDefault.hidden = true;
+      if (cardSent) cardSent.hidden = false;
+      if (data.devLink && devFallback && devLink) { devFallback.hidden = false; devLink.href = data.devLink; }
+    } catch (err) {
+      if (errorEl) { errorEl.hidden = false; errorEl.textContent = err instanceof Error ? err.message : 'Network error.'; }
+    } finally {
+      submit.disabled = false;
+      if (lDefault) lDefault.hidden = false;
+      if (lLoading) lLoading.hidden = true;
+    }
+  });
+  backBtn?.addEventListener('click', () => {
+    if (cardSent) cardSent.hidden = true;
+    if (cardDefault) cardDefault.hidden = false;
+    if (devFallback) devFallback.hidden = true;
+  });
+</script>

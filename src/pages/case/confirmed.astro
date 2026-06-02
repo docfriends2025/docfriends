@@ -1,0 +1,149 @@
+---
+// Screen 9 — Confirmation. Shows the locked-in order: ref, panel, price, and what
+// happens next. Clears the draft cookie so the case is no longer "in progress".
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import FlowSteps from '~/components/FlowSteps.astro';
+import { getEnv, hasDb, getDb } from '~/lib/db';
+import { getPackages } from '~/lib/content';
+import { formatUSD } from '~/lib/format';
+
+export const prerender = false;
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/sign-in?next=/case/confirmed');
+
+const env = getEnv(Astro.locals);
+const refParam = Astro.url.searchParams.get('ref');
+
+let order: { ref: string | null; packageSlug: string | null; priceCents: number | null } | null = null;
+if (hasDb(env)) {
+  try {
+    const db = getDb(env);
+    let row: Record<string, unknown> | undefined;
+    if (refParam && /^[0-9A-Za-z]{3,12}$/.test(refParam)) {
+      const r = await db.execute({
+        sql: "SELECT ref, package_slug, price_cents FROM cases WHERE ref = ? AND user_id = ? AND payment_status = 'paid'",
+        args: [refParam, user.id],
+      });
+      row = r.rows[0] as Record<string, unknown> | undefined;
+    }
+    if (!row) {
+      const r = await db.execute({
+        sql: "SELECT ref, package_slug, price_cents FROM cases WHERE user_id = ? AND payment_status = 'paid' ORDER BY updated_at DESC LIMIT 1",
+        args: [user.id],
+      });
+      row = r.rows[0] as Record<string, unknown> | undefined;
+    }
+    if (row) {
+      order = {
+        ref: row.ref ? String(row.ref) : null,
+        packageSlug: row.package_slug ? String(row.package_slug) : null,
+        priceCents: row.price_cents != null ? Number(row.price_cents) : null,
+      };
+    }
+  } catch (e) { console.error('confirmed load', e); }
+}
+
+// The case is locked in — stop treating it as an in-progress draft.
+Astro.cookies.delete('df_draft', { path: '/' });
+Astro.cookies.delete('df_name', { path: '/' });
+
+const packages = await getPackages(env);
+const pkg = order ? packages.find((p) => p.slug === order!.packageSlug) ?? null : null;
+
+const steps = [
+  { icon: '✓', title: 'Payment confirmed', body: 'Your panel is booked and your case is in the queue. A receipt is on its way to your inbox.' },
+  { icon: '◷', title: 'Matching your doctors', body: pkg ? `We're assigning ${pkg.opinionCount} board-certified specialist${pkg.opinionCount > 1 ? 's' : ''} on specialty fit and availability — usually within the hour.` : "We're assigning board-certified specialists on specialty fit and availability." },
+  { icon: '✉', title: 'Your opinions, within 24 hours', body: "Each doctor writes back clearly and kindly. We'll email you the moment your case is delivered." },
+];
+---
+
+<BaseLayout title="You're all set — DocFriends" chrome={true}>
+  <section class="confirm">
+    <div class="container-narrow">
+      <FlowSteps current={3} />
+
+      {order ? (
+        <>
+          <div class="hero">
+            <div class="seal">✓</div>
+            <div class="eyebrow">Order confirmed</div>
+            <h1 class="h-display c-title">You're all set, <em>{user.name ?? 'friend'}.</em></h1>
+            <p class="muted lead">Your case is paid and submitted. Our doctors take it from here — written opinions land in your inbox within 24 hours, or it's free.</p>
+          </div>
+
+          <div class="receipt">
+            <div class="r-row">
+              <span class="faint tiny">Case reference</span>
+              <span class="mono ref">#{order.ref ?? '—'}</span>
+            </div>
+            <div class="r-row">
+              <span class="faint tiny">Panel</span>
+              <span>{pkg ? `${pkg.name} · ${pkg.opinionCount} opinion${pkg.opinionCount > 1 ? 's' : ''}` : '—'}</span>
+            </div>
+            <div class="r-row">
+              <span class="faint tiny">Receipt sent to</span>
+              <span>{user.email}</span>
+            </div>
+            <div class="r-row total">
+              <span>Paid today</span>
+              <span class="h-display amt">{formatUSD(order.priceCents)}</span>
+            </div>
+          </div>
+
+          <h2 class="sec-h h-display">What happens next</h2>
+          <ol class="timeline">
+            {steps.map((s) => (
+              <li class="tl-item">
+                <span class="tl-ico">{s.icon}</span>
+                <div><div class="tl-title">{s.title}</div><p class="muted">{s.body}</p></div>
+              </li>
+            ))}
+          </ol>
+
+          <div class="c-cta">
+            <a href="/" class="btn primary lg">Back to home →</a>
+            <a href="/contact" class="btn ghost lg">Questions? Talk to us</a>
+          </div>
+          <p class="faint tiny dash-note">Your dashboard to track everything in one place is coming soon — we'll email you the link.</p>
+        </>
+      ) : (
+        <div class="hero">
+          <div class="eyebrow">Nothing to confirm yet</div>
+          <h1 class="h-display c-title">No confirmed order found.</h1>
+          <p class="muted lead">We couldn't find a paid case on your account. If you just paid and this looks wrong, contact us and we'll sort it out right away.</p>
+          <div class="c-cta">
+            <a href="/" class="btn primary lg">Start a case →</a>
+            <a href="/contact" class="btn ghost lg">Contact support</a>
+          </div>
+        </div>
+      )}
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .confirm { padding-block: clamp(28px, 4vw, 48px); }
+  .hero { text-align: center; max-width: 620px; margin: 0 auto; }
+  .seal { width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50%; background: var(--success-soft); color: var(--success); display: grid; place-items: center; font-size: 30px; font-weight: 700; }
+  .c-title { font-size: clamp(34px, 5vw, 48px); margin: 10px 0 14px; }
+  .lead { font-size: 15.5px; line-height: 1.6; }
+
+  .receipt { max-width: 460px; margin: 34px auto 0; border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 10px 22px; background: var(--paper); }
+  .r-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; }
+  .r-row:last-child { border-bottom: 0; }
+  .r-row.total { padding: 16px 0; }
+  .r-row.total span:first-child { font-weight: 600; }
+  .ref { font-size: 15px; }
+  .amt { font-size: 26px; }
+
+  .sec-h { font-size: 22px; margin: 40px 0 16px; text-align: center; }
+  .timeline { list-style: none; max-width: 540px; margin: 0 auto; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .tl-item { display: flex; gap: 16px; padding: 14px 0; align-items: flex-start; }
+  .tl-ico { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line-strong); display: grid; place-items: center; font-size: 15px; color: var(--accent-deep); background: var(--accent-tint); }
+  .tl-title { font-weight: 600; margin-bottom: 3px; }
+  .tl-item p { font-size: 14px; line-height: 1.55; }
+
+  .c-cta { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin: 38px 0 0; }
+  .dash-note { text-align: center; margin-top: 16px; }
+</style>

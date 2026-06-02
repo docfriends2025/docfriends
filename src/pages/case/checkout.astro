@@ -1,0 +1,187 @@
+---
+// Screen 8 — Package & payment. Requires a signed-in user. Claims the draft case,
+// lets them pick a panel, and runs a (stub) payment. Already paid → confirmation.
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import FlowSteps from '~/components/FlowSteps.astro';
+import CaseRail from '~/components/CaseRail.astro';
+import { getEnv } from '~/lib/db';
+import { getPackages } from '~/lib/content';
+import { loadDraft } from '~/lib/cases';
+import { formatUSD } from '~/lib/format';
+
+export const prerender = false;
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/sign-in?next=/case/checkout');
+
+const env = getEnv(Astro.locals);
+const draftId = Astro.cookies.get('df_draft')?.value ?? null;
+const draft = await loadDraft(env, draftId);
+
+// Already paid → jump to the confirmation.
+if (draft && draft.paymentStatus === 'paid') {
+  return Astro.redirect(`/case/confirmed${draft.ref ? `?ref=${draft.ref}` : ''}`);
+}
+
+// Only show a case the visitor is allowed to pay for (unclaimed, or already theirs).
+const usableDraft = draft && (draft.userId === null || draft.userId === user.id) ? draft : null;
+
+const packages = await getPackages(env);
+const prefName = (user.name ?? Astro.cookies.get('df_name')?.value ?? '').slice(0, 120);
+const preselect = packages.find((p) => p.featured)?.slug ?? packages[0]?.slug ?? '';
+---
+
+<BaseLayout title="Choose your panel & pay — DocFriends" chrome={true}>
+  <section class="flow">
+    <div class="container">
+      <FlowSteps current={3} />
+
+      {usableDraft ? (
+        <div class="flow-grid">
+          <div class="flow-main">
+            <div class="eyebrow">Step 3 of 3</div>
+            <h1 class="h-display flow-title">How many doctors <em>should look?</em></h1>
+            <p class="muted lead">Pick one panel — your case is already saved. You only pay now, and we deliver within 24 hours or refund you in full.</p>
+
+            <form data-checkout-form>
+              <div class="pkg-row">
+                {packages.map((pkg) => (
+                  <label class:list={['pkg', { featured: pkg.featured }]}>
+                    <input type="radio" name="package" value={pkg.slug} checked={pkg.slug === preselect}
+                      data-price={pkg.priceCents} data-name={pkg.name} data-count={pkg.opinionCount} />
+                    {pkg.featured && <span class="badge">most chosen</span>}
+                    <span class="pkg-name h-display">{pkg.name}</span>
+                    <span class="muted tiny">{pkg.blurb}</span>
+                    <span class="pkg-price h-display">{formatUSD(pkg.priceCents)}</span>
+                    <span class="faint tiny">{pkg.opinionCount} opinion{pkg.opinionCount > 1 ? 's' : ''} · refund if late</span>
+                  </label>
+                ))}
+              </div>
+
+              <h2 class="sec-h h-display">Payment</h2>
+              <div class="alert dev" style="margin-bottom:18px"><strong>Demo checkout</strong> — no real card is charged. Submitting records a paid order so you can walk the full flow end-to-end.</div>
+
+              <label for="co-name" class="field-label">Name on the case</label>
+              <input id="co-name" name="name" type="text" class="input-line" placeholder="Jane Okafor" autocomplete="name" maxlength="120" value={prefName} required />
+
+              <label for="co-card" class="field-label" style="margin-top:16px">Card number</label>
+              <input id="co-card" name="card" type="text" class="input-line" placeholder="4242 4242 4242 4242" inputmode="numeric" autocomplete="off" maxlength="23" required />
+
+              <div class="card-row">
+                <div>
+                  <label for="co-exp" class="field-label">Expiry</label>
+                  <input id="co-exp" name="exp" type="text" class="input-line" placeholder="MM / YY" inputmode="numeric" autocomplete="off" maxlength="7" required />
+                </div>
+                <div>
+                  <label for="co-cvc" class="field-label">CVC</label>
+                  <input id="co-cvc" name="cvc" type="text" class="input-line" placeholder="123" inputmode="numeric" autocomplete="off" maxlength="4" required />
+                </div>
+              </div>
+
+              <button type="submit" class="btn accent lg block" style="margin-top:24px" data-submit>
+                <span class="l-default">Pay <span data-total>{formatUSD(packages.find((p) => p.slug === preselect)?.priceCents ?? 0)}</span> &amp; submit case →</span>
+                <span class="l-loading" hidden>Processing…</span>
+              </button>
+              <div class="alert error" data-form-error hidden style="margin-top:14px"></div>
+              <p class="faint tiny pay-foot">🔒 You only pay when you choose a panel · 24-hour delivery or full refund</p>
+            </form>
+
+            <a href="/" class="back-link faint tiny">← Edit my case</a>
+          </div>
+
+          <CaseRail draft={usableDraft} />
+        </div>
+      ) : (
+        <div class="empty-state">
+          <div class="eyebrow">Nothing to check out</div>
+          <h1 class="h-display flow-title">Let's start with your case.</h1>
+          <p class="muted lead">We couldn't find a case to pay for. Tell us what's going on and upload anything you have — it only takes a minute, and it's free until you choose a panel.</p>
+          <a href="/" class="btn primary lg" style="margin-top:8px">Start your case →</a>
+        </div>
+      )}
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .flow { padding-block: clamp(28px, 4vw, 48px); }
+  .flow-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: clamp(28px, 4vw, 56px); align-items: start; }
+  .flow-title { font-size: clamp(32px, 4.5vw, 46px); margin: 12px 0 10px; }
+  .lead { max-width: 52ch; font-size: 15px; line-height: 1.6; }
+
+  .pkg-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 26px 0 30px; }
+  .pkg { position: relative; display: flex; flex-direction: column; gap: 3px; border: 1px solid var(--line-strong); border-radius: 12px; padding: 18px 16px 16px; cursor: pointer; transition: border-color .12s; }
+  .pkg:hover { border-color: var(--ink); }
+  .pkg input { position: absolute; opacity: 0; }
+  .pkg:has(input:checked) { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+  .badge { position: absolute; top: -10px; left: 14px; background: var(--accent-tint); color: var(--accent-deep); border: 1px solid var(--accent-soft); font-size: 10px; font-weight: 600; padding: 2px 9px; border-radius: 99px; }
+  .pkg-name { font-size: 21px; }
+  .pkg-price { font-size: 27px; margin-top: 8px; }
+
+  .sec-h { font-size: 22px; margin: 4px 0 12px; }
+  .card-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+  .alert.dev code { background: rgba(0,0,0,.08); padding: 1px 5px; border-radius: 3px; }
+  .pay-foot { margin-top: 14px; text-align: center; }
+  .back-link { display: inline-block; margin-top: 22px; }
+
+  .empty-state { max-width: 560px; padding-block: clamp(20px, 5vw, 60px); }
+
+  @media (max-width: 860px) { .flow-grid { grid-template-columns: 1fr; } .pkg-row { grid-template-columns: 1fr; } }
+</style>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('[data-checkout-form]');
+  const submit = form?.querySelector<HTMLButtonElement>('[data-submit]');
+  const errorEl = form?.querySelector<HTMLDivElement>('[data-form-error]');
+  const totalEl = form?.querySelector<HTMLElement>('[data-total]');
+  const lDefault = submit?.querySelector('.l-default') as HTMLElement | null;
+  const lLoading = submit?.querySelector('.l-loading') as HTMLElement | null;
+
+  // Mirror of formatUSD() from ~/lib/format — kept inline so this stays import-free.
+  function usd(cents: number): string {
+    const hasFraction = Math.round(cents) % 100 !== 0;
+    return '$' + (cents / 100).toLocaleString('en-US', {
+      minimumFractionDigits: hasFraction ? 2 : 0, maximumFractionDigits: 2,
+    });
+  }
+
+  function selectedRadio(): HTMLInputElement | null {
+    return form?.querySelector<HTMLInputElement>('input[name="package"]:checked') ?? null;
+  }
+  function syncTotal() {
+    const r = selectedRadio();
+    if (r && totalEl) totalEl.textContent = usd(Number(r.dataset.price || 0));
+  }
+  form?.querySelectorAll<HTMLInputElement>('input[name="package"]').forEach((r) =>
+    r.addEventListener('change', syncTotal));
+  syncTotal();
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!submit) return;
+    const pkg = selectedRadio();
+    if (!pkg) return;
+    if (errorEl) errorEl.hidden = true;
+    submit.disabled = true;
+    if (lDefault) lDefault.hidden = true;
+    if (lLoading) lLoading.hidden = false;
+    const fd = new FormData(form);
+    try {
+      const res = await fetch('/api/case/checkout', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ package: pkg.value, name: String(fd.get('name') || '').trim() }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string; ref?: string; next?: string };
+      if (!res.ok || !data.ok) {
+        if (data.next) { window.location.href = data.next; return; }
+        throw new Error(data.error || 'Payment could not be completed.');
+      }
+      window.location.href = `/case/confirmed${data.ref ? `?ref=${encodeURIComponent(data.ref)}` : ''}`;
+    } catch (err) {
+      if (errorEl) { errorEl.hidden = false; errorEl.textContent = err instanceof Error ? err.message : 'Network error.'; }
+      submit.disabled = false;
+      if (lDefault) lDefault.hidden = false;
+      if (lLoading) lLoading.hidden = true;
+    }
+  });
+</script>
