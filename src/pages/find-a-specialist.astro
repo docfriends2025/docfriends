@@ -78,6 +78,7 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
           <div class="q-actions" data-q-actions hidden>
             <button class="btn primary lg" data-to-results disabled>See likely causes →</button>
           </div>
+          <p class="q-hint faint" data-q-hint hidden></p>
         </div>
 
         <!-- STAGE: results -->
@@ -146,6 +147,9 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
   .q-opt:hover { border-color: var(--ink); }
   .q-opt.sel { background: var(--ink); border-color: var(--ink); color: var(--paper); }
   .q-actions { display: flex; gap: 12px; margin-top: 26px; }
+  /* Gated until every question is answered — show "not yet", not a loading spinner. */
+  .q-actions .btn[disabled] { cursor: not-allowed; }
+  .q-hint { font-size: 12.5px; margin-top: 10px; }
 
   .results-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 22px; align-items: start; }
   .recap, .causes { padding: 20px; margin-bottom: 16px; }
@@ -194,6 +198,7 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
   const qEyebrow = root.querySelector<HTMLElement>('[data-q-eyebrow]')!;
   const qTitle = root.querySelector<HTMLElement>('[data-q-title]')!;
   const qActions = root.querySelector<HTMLElement>('[data-q-actions]')!;
+  const qHint = root.querySelector<HTMLElement>('[data-q-hint]')!;
 
   let answers: Record<string, string> = {};
 
@@ -247,6 +252,7 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
     qEyebrow.textContent = 'Get started';
     qTitle.textContent = 'Pick a symptom to begin';
     qActions.hidden = true;
+    qHint.hidden = true;
     toR.disabled = true;
     root.querySelector<HTMLElement>('[data-questions]')!.innerHTML =
       `<p class="q-placeholder muted">Choose one or more symptoms from the list on the left. We'll ask a few quick questions, then point you to the right specialist.</p>`;
@@ -265,15 +271,21 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
         <div class="q-text">${q.q}</div>
         <div class="q-opts">${q.options.map((o) => `<button type="button" class="q-opt" data-opt="${encodeURIComponent(o.label)}">${o.label}</button>`).join('')}</div>
       </div>`).join('');
+    const updateGate = () => {
+      const remaining = qs.length - Object.keys(answers).length;
+      toR.disabled = remaining > 0;
+      qHint.hidden = remaining <= 0;
+      qHint.textContent = remaining > 0 ? `Answer ${remaining} more question${remaining > 1 ? 's' : ''} to continue.` : '';
+    };
     wrap.querySelectorAll<HTMLButtonElement>('.q-opt').forEach((btn) => btn.addEventListener('click', () => {
       const block = btn.closest<HTMLElement>('[data-q]')!;
       block.querySelectorAll('.q-opt').forEach((b) => b.classList.remove('sel'));
       btn.classList.add('sel');
       answers[block.dataset.q!] = decodeURIComponent(btn.dataset.opt!);
-      toR.disabled = Object.keys(answers).length < qs.length;
+      updateGate();
     }));
     qActions.hidden = false;
-    toR.disabled = true;
+    updateGate();
   }
 
   // results
