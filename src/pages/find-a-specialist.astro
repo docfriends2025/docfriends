@@ -68,26 +68,14 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
           ))}
         </ol>
 
-        <!-- STAGE: select -->
-        <div class="stage" data-stage="select">
-          <div class="empty-pick card">
-            <div class="ep-icon">＋</div>
-            <h2 class="h-title">Start by choosing a symptom</h2>
-            <p class="muted">Select one or more from the list. The clearer you are, the better we can point you.</p>
-            <div class="chosen-row" data-chosen></div>
-            <button class="btn primary lg" data-to-questions disabled>Continue · a few questions →</button>
-          </div>
-        </div>
-
-        <!-- STAGE: questions -->
-        <div class="stage" data-stage="questions" hidden>
+        <!-- STAGE: questions (default — choosing a symptom on the left fills it in) -->
+        <div class="stage" data-stage="questions">
           <div class="q-head">
-            <div class="eyebrow tiny">About your <span data-q-symptom></span></div>
-            <h2 class="h-title">A few quick questions</h2>
+            <div class="eyebrow tiny" data-q-eyebrow>Get started</div>
+            <h2 class="h-title" data-q-title>Pick a symptom to begin</h2>
           </div>
           <div class="q-list" data-questions></div>
-          <div class="q-actions">
-            <button class="btn ghost" data-back-select>← Back</button>
+          <div class="q-actions" data-q-actions hidden>
             <button class="btn primary lg" data-to-results disabled>See likely causes →</button>
           </div>
         </div>
@@ -147,11 +135,7 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
   .rail-step.done { color: var(--ink); } .rail-step.done .rail-circle { background: var(--ink); border-color: var(--ink); color: var(--paper); }
   .rail-step.active { color: var(--accent-deep); } .rail-step.active .rail-circle { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-  .empty-pick { text-align: center; padding: 44px 32px; max-width: 520px; margin: 8px auto; }
-  .ep-icon { width: 48px; height: 48px; margin: 0 auto 14px; border-radius: 12px; background: var(--accent-tint); color: var(--accent); display: grid; place-items: center; font-size: 24px; }
-  .empty-pick h2 { font-size: 19px; margin-bottom: 6px; }
-  .chosen-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 18px 0; }
-  .chosen-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 99px; background: var(--ink); color: var(--paper); font-size: 12.5px; }
+  .q-placeholder { font-size: 15px; line-height: 1.6; max-width: 560px; }
 
   .q-head { margin-bottom: 18px; }
   .q-head h2 { font-size: 20px; margin-top: 2px; }
@@ -201,35 +185,36 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
   const root = document.querySelector<HTMLElement>('.finder')!;
   const fromPrice = root.dataset.fromPrice ?? '$149';
   const stages = {
-    select: root.querySelector<HTMLElement>('[data-stage="select"]')!,
     questions: root.querySelector<HTMLElement>('[data-stage="questions"]')!,
     results: root.querySelector<HTMLElement>('[data-stage="results"]')!,
   };
   const railSteps = Array.from(root.querySelectorAll<HTMLElement>('[data-step]'));
   const checks = Array.from(root.querySelectorAll<HTMLInputElement>('input[name="symptom"]'));
-  const chosenRow = root.querySelector<HTMLElement>('[data-chosen]')!;
-  const toQ = root.querySelector<HTMLButtonElement>('[data-to-questions]')!;
   const toR = root.querySelector<HTMLButtonElement>('[data-to-results]')!;
+  const qEyebrow = root.querySelector<HTMLElement>('[data-q-eyebrow]')!;
+  const qTitle = root.querySelector<HTMLElement>('[data-q-title]')!;
+  const qActions = root.querySelector<HTMLElement>('[data-q-actions]')!;
 
   let answers: Record<string, string> = {};
 
   const selectedNames = () => checks.filter((c) => c.checked).map((c) => c.value);
   const primaryOf = (sel: string[]) => sel.find((s) => SYMPTOMS[s]) ?? sel[0];
 
-  function setStage(stage: 'select' | 'questions' | 'results') {
+  function showStage(stage: 'questions' | 'results') {
     Object.entries(stages).forEach(([k, el]) => { el.hidden = k !== stage; });
-    const idx = stage === 'select' ? 0 : stage === 'questions' ? 1 : 3;
+  }
+  function setRail(idx: number) {
     railSteps.forEach((el, i) => {
       el.classList.toggle('active', i === idx);
       el.classList.toggle('done', i < idx);
     });
   }
 
-  // selection
+  // Picking a symptom on the left drives the questions directly — no interstitial.
   function syncSelection() {
-    const sel = selectedNames();
-    chosenRow.innerHTML = sel.map((s) => `<span class="chosen-chip">${s}</span>`).join('');
-    toQ.disabled = sel.length === 0;
+    showStage('questions');
+    if (selectedNames().length) { renderQuestions(); setRail(1); }
+    else { showPlaceholder(); setRail(0); }
   }
   checks.forEach((c) => c.addEventListener('change', syncSelection));
 
@@ -258,12 +243,22 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
   });
 
   // questions
+  function showPlaceholder() {
+    qEyebrow.textContent = 'Get started';
+    qTitle.textContent = 'Pick a symptom to begin';
+    qActions.hidden = true;
+    toR.disabled = true;
+    root.querySelector<HTMLElement>('[data-questions]')!.innerHTML =
+      `<p class="q-placeholder muted">Choose one or more symptoms from the list on the left. We'll ask a few quick questions, then point you to the right specialist.</p>`;
+  }
+
   function renderQuestions() {
     const sel = selectedNames();
     const primary = primaryOf(sel);
-    root.querySelector<HTMLElement>('[data-q-symptom]')!.textContent = primary.toLowerCase();
     const qs = questionsFor(primary);
     answers = {};
+    qEyebrow.textContent = `About your ${primary.toLowerCase()}`;
+    qTitle.textContent = 'A few quick questions';
     const wrap = root.querySelector<HTMLElement>('[data-questions]')!;
     wrap.innerHTML = qs.map((q) => `
       <div class="q-block" data-q="${q.id}">
@@ -277,6 +272,7 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
       answers[block.dataset.q!] = decodeURIComponent(btn.dataset.opt!);
       toR.disabled = Object.keys(answers).length < qs.length;
     }));
+    qActions.hidden = false;
     toR.disabled = true;
   }
 
@@ -332,14 +328,11 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
   }
 
   // wiring
-  toQ.addEventListener('click', () => { renderQuestions(); setStage('questions'); });
-  toR.addEventListener('click', () => { renderResults(); setStage('results'); });
-  root.querySelector('[data-back-select]')!.addEventListener('click', () => setStage('select'));
+  toR.addEventListener('click', () => { renderResults(); showStage('results'); setRail(3); });
   root.querySelector('[data-restart]')!.addEventListener('click', () => {
     checks.forEach((c) => { c.checked = false; });
-    answers = {}; syncSelection(); setStage('select');
+    answers = {}; syncSelection();
   });
 
   syncSelection();
-  setStage('select');
 </script>
