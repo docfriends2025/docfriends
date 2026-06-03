@@ -6,3 +6,4 @@ dist/
 *.log
 .DS_Store
 .cf.env
+.secrets.env
