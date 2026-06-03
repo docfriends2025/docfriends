@@ -1,0 +1,84 @@
+---
+// /dashboard — the signed-in client's own cases. Client-role guarded by middleware.
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { getEnv, getDb } from '~/lib/db';
+import { snippet } from '~/lib/portal';
+
+export const prerender = false;
+
+const env = getEnv(Astro.locals);
+const user = Astro.locals.user!;
+
+const res = await getDb(env).execute({
+  sql: `SELECT c.id, c.ref, c.title, c.status, c.symptoms, c.created_at,
+               p.name pkg_name, p.opinion_count, s.name spec_name,
+               (SELECT COUNT(*) FROM opinions o WHERE o.case_id = c.id AND o.status = 'submitted') submitted
+        FROM cases c
+        LEFT JOIN packages p ON p.slug = c.package_slug
+        LEFT JOIN specialties s ON s.slug = c.specialty_slug
+        WHERE c.user_id = ? AND c.payment_status = 'paid'
+        ORDER BY c.created_at DESC`,
+  args: [user.id],
+});
+
+const cases = res.rows.map((r) => ({
+  id: String(r.id), ref: String(r.ref ?? '—'),
+  title: r.title ? String(r.title) : (r.symptoms ? snippet(String(r.symptoms), 50) : 'Your case'),
+  status: String(r.status),
+  pkg: r.pkg_name ? String(r.pkg_name) : null, opinionCount: r.opinion_count != null ? Number(r.opinion_count) : 0,
+  spec: r.spec_name ? String(r.spec_name) : null, submitted: Number(r.submitted),
+}));
+
+const firstName = (user.name ?? '').split(/\s+/)[0] || 'there';
+---
+
+<BaseLayout title="Your cases — DocFriends" chrome={true}>
+  <section class="dash">
+    <div class="container-narrow">
+      <div class="eyebrow">Your account</div>
+      <h1 class="h-display dash-title">Hello, {firstName}.</h1>
+      <p class="muted dash-sub">Your second-opinion cases and where each one stands.</p>
+
+      {cases.length === 0 ? (
+        <div class="card empty-card">
+          <p class="muted">You don't have any cases yet.</p>
+          <a href="/" class="btn primary lg" style="margin-top:14px">Start a case →</a>
+        </div>
+      ) : (
+        <div class="case-list">
+          {cases.map((c) => {
+            const delivered = c.status === 'delivered';
+            return (
+              <a class="case-row card" href={`/dashboard/cases/${c.id}`}>
+                <div class="cr-main">
+                  <div class="cr-top"><span class="mono cr-ref">#{c.ref}</span>
+                    <span class:list={['chip', { ok: delivered }]}>{delivered ? 'delivered' : c.status.replace(/_/g, ' ')}</span>
+                  </div>
+                  <div class="cr-title">{c.title}</div>
+                  <div class="cr-meta faint tiny">{[c.pkg, c.spec].filter(Boolean).join(' · ')}{c.opinionCount ? ` · ${c.submitted} of ${c.opinionCount} opinions in` : ''}</div>
+                </div>
+                <span class="cr-go">{delivered ? 'View opinions' : 'View'} →</span>
+              </a>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .dash { padding-block: clamp(28px, 5vw, 56px); }
+  .dash-title { font-size: clamp(32px, 5vw, 44px); margin: 10px 0 8px; }
+  .dash-sub { font-size: 15px; margin-bottom: 28px; }
+  .empty-card { text-align: center; padding: 40px 24px; }
+  .case-list { display: flex; flex-direction: column; gap: 12px; }
+  .case-row { display: flex; align-items: center; gap: 16px; padding: 18px 20px; text-decoration: none; color: var(--ink); transition: border-color .14s, box-shadow .14s; }
+  .case-row:hover { border-color: var(--ink); box-shadow: 0 12px 30px -22px rgba(26,34,56,.3); }
+  .cr-main { flex: 1; min-width: 0; }
+  .cr-top { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+  .cr-ref { font-size: 12px; color: var(--ink-light); }
+  .cr-title { font-weight: 600; font-size: 15px; }
+  .cr-meta { margin-top: 3px; }
+  .cr-go { color: var(--accent-deep); font-weight: 600; font-size: 13.5px; white-space: nowrap; }
+</style>

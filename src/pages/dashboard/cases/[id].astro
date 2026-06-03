@@ -1,0 +1,244 @@
+---
+// /dashboard/cases/[id] — the client reads their panel's opinions.
+// Client-role guarded by middleware; ownership enforced here (user_id must match).
+// Doctors are NAMED on this page (it's for the patient). Only SUBMITTED opinions shown.
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { getEnv, getDb } from '~/lib/db';
+import { formatDate, initialsFrom, parseJSON } from '~/lib/format';
+import { questionsOf } from '~/lib/portal';
+
+export const prerender = false;
+
+const env = getEnv(Astro.locals);
+const user = Astro.locals.user!;
+const { id } = Astro.params;
+const db = getDb(env);
+
+const cr = await db.execute({
+  sql: `SELECT c.*, p.name pkg_name, p.opinion_count, s.name spec_name
+        FROM cases c
+        LEFT JOIN packages p ON p.slug = c.package_slug
+        LEFT JOIN specialties s ON s.slug = c.specialty_slug
+        WHERE c.id = ?`,
+  args: [id!],
+});
+const c = cr.rows[0] as Record<string, unknown> | undefined;
+
+// Ownership: a client may only see their OWN case. Anything else → 404 (don't reveal existence).
+const owned = c && c.user_id && String(c.user_id) === user.id;
+if (!owned) Astro.response.status = 404;
+
+interface Op { name: string; initials: string; spec: string | null; hospital: string | null; years: number | null; rating: number; verdict: string; diagnosisReview: string; nextSteps: string; redFlags: string; answers: string[]; }
+let ops: Op[] = [];
+let questions: string[] = [];
+let opinionCount = 0;
+
+if (owned) {
+  opinionCount = c!.opinion_count != null ? Number(c!.opinion_count) : 0;
+  questions = questionsOf(c!.questions_json ? String(c!.questions_json) : null);
+  const or = await db.execute({
+    sql: `SELECT o.verdict, o.diagnosis_review, o.next_steps, o.answers_json, o.red_flags, o.submitted_at,
+                 d.name, d.initials, d.hospital, d.years_practice, d.rating, sd.name doc_spec
+          FROM opinions o
+          JOIN doctors d ON d.id = o.doctor_id
+          LEFT JOIN specialties sd ON sd.slug = d.specialty_slug
+          WHERE o.case_id = ? AND o.status = 'submitted'
+          ORDER BY d.rating DESC, o.submitted_at`,
+    args: [id!],
+  });
+  ops = or.rows.map((r) => ({
+    name: String(r.name), initials: r.initials ? String(r.initials) : initialsFrom(String(r.name)),
+    spec: r.doc_spec ? String(r.doc_spec) : null, hospital: r.hospital ? String(r.hospital) : null,
+    years: r.years_practice != null ? Number(r.years_practice) : null, rating: r.rating != null ? Number(r.rating) : 0,
+    verdict: r.verdict ? String(r.verdict) : '', diagnosisReview: r.diagnosis_review ? String(r.diagnosis_review) : '',
+    nextSteps: r.next_steps ? String(r.next_steps) : '', redFlags: r.red_flags ? String(r.red_flags) : '',
+    answers: parseJSON<string[]>(r.answers_json ? String(r.answers_json) : null, []),
+  }));
+}
+
+const delivered = owned && String(c!.status) === 'delivered';
+const hasOpinions = ops.length > 0;
+const consensus = owned && c!.consensus ? String(c!.consensus) : '';
+const ref = owned ? String(c!.ref ?? id) : '';
+const docMeta = (o: Op) => [o.spec, o.hospital, o.years ? `${o.years} yrs` : null].filter(Boolean).join(' · ');
+---
+
+{!owned ? (
+  <BaseLayout title="Case not found — DocFriends" chrome={true}>
+    <section class="nf"><div class="container-narrow">
+      <div class="eyebrow">Not found</div>
+      <h1 class="h-display" style="font-size:34px;margin:10px 0 12px">We couldn't find that case.</h1>
+      <p class="muted">It may not exist, or it isn't on your account. <a href="/dashboard">← Back to your cases</a></p>
+    </div></section>
+  </BaseLayout>
+) : (
+  <BaseLayout title={`Your opinions · #${ref} — DocFriends`} chrome={true}>
+    <section class="cov">
+      <div class="wrap">
+        <header class="hd">
+          <div class="eyebrow">Your case · #{ref}</div>
+          <h1 class="serif hd-title">{hasOpinions ? 'Your second opinions are ready' : 'Your case is with the panel'}</h1>
+          <div class="meta">
+            <span class:list={['chip', { ok: hasOpinions }]}>{hasOpinions ? '✓ ' : ''}{ops.length} of {opinionCount || ops.length} opinions in</span>
+            <span class="chip">{c!.pkg_name ? String(c!.pkg_name) : 'Case'}{c!.spec_name ? ` · ${String(c!.spec_name)}` : ''}</span>
+            {delivered && c!.delivered_at != null && <span class="chip">Delivered {formatDate(Number(c!.delivered_at))}</span>}
+          </div>
+        </header>
+
+        {!hasOpinions ? (
+          <div class="progress-card">
+            <div class="pc-ring">{ops.length}/{opinionCount || '—'}</div>
+            <div>
+              <h2 class="serif" style="font-size:20px;margin-bottom:6px">We'll email you when your panel is complete.</h2>
+              <p class="muted" style="font-size:14.5px">{ops.length} of {opinionCount || 'your'} opinion{(opinionCount || 2) > 1 ? 's' : ''} {ops.length === 1 ? 'is' : 'are'} in so far. You'll get an email the moment every doctor has submitted — then their full write-ups appear here.</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <!-- PANEL AT A GLANCE -->
+            <div class="consensus">
+              <span class="tag">Your panel at a glance</span>
+              <h2 class="serif">{ops.length > 1 ? 'The short version' : 'Your specialist'}</h2>
+              {consensus && <p class="clead">{consensus}</p>}
+              {ops.map((o) => (
+                <div class="cpoint">
+                  <span class="ava sm">{o.initials}</span>
+                  <div><b>{o.name}{o.spec ? ` · ${o.spec}` : ''}:</b> {o.verdict || '—'}</div>
+                </div>
+              ))}
+              <div class="cnote">These are independent specialist opinions to discuss with your own doctor — guidance, not a prescription.</div>
+            </div>
+
+            <!-- BY QUESTION -->
+            {questions.length > 0 && (
+              <>
+                <h2 class="sec-title">Your questions, answered by all {ops.length}</h2>
+                <p class="sec-sub">The exact questions you asked, side by side.</p>
+                {questions.map((q, qi) => (
+                  <div class="q-block">
+                    <div class="q"><span class="qn mono">Q{qi + 1}</span><span>{q}</span></div>
+                    <div class="ans-grid" style={`grid-template-columns:repeat(${ops.length},minmax(0,1fr))`}>
+                      {ops.map((o) => (
+                        <div class="ans">
+                          <div class="dr"><span class="av">{o.initials}</span><span class="dn">{o.name}</span></div>
+                          <div class="txt">{o.answers[qi] && o.answers[qi].trim() ? o.answers[qi] : '—'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            <!-- FULL OPINIONS -->
+            <h2 class="sec-title">The full opinions</h2>
+            <p class="sec-sub">Tap any doctor to read their complete write-up.</p>
+            {ops.map((o, oi) => (
+              <div class:list={['op', { open: oi === 0 }]}>
+                <button type="button" class="op-head" data-op-toggle>
+                  <span class="av lg">{o.initials}</span>
+                  <div><div class="nm">{o.name} <span class="stars">★ {o.rating.toFixed(2)}</span></div><div class="cr">{docMeta(o)}</div></div>
+                  <div class="verdict"><div class="vl">Verdict</div><div class="vt">{o.verdict || '—'}</div></div>
+                  <span class="car">⌄</span>
+                </button>
+                <div class="op-body">
+                  {o.diagnosisReview && <div class="blk"><div class="bl">Diagnosis review</div><div class="bt">{o.diagnosisReview}</div></div>}
+                  {o.nextSteps && <div class="blk"><div class="bl">Recommended next steps</div><div class="bt">{o.nextSteps}</div></div>}
+                  {o.redFlags && <div class="redflag"><b>When to seek urgent care:</b> {o.redFlags}</div>}
+                </div>
+              </div>
+            ))}
+
+            <div class="foot">
+              <span class="faint" style="font-size:13px">Guidance from independent specialists · discuss with your treating doctor</span>
+              <button type="button" class="btn primary no-print" data-print>Download / print opinions →</button>
+            </div>
+          </>
+        )}
+
+        <p class="back no-print"><a href="/dashboard">← All your cases</a></p>
+      </div>
+    </section>
+  </BaseLayout>
+)}
+
+<style>
+  .cov { padding-block: clamp(24px, 4vw, 44px); }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  .nf { padding-block: 60px; }
+  .serif { font-family: var(--serif); font-weight: 400; }
+
+  .hd { border-bottom: 1px solid var(--line); padding-bottom: 22px; margin-bottom: 26px; }
+  .hd-title { font-size: clamp(30px, 4.5vw, 38px); line-height: 1.05; margin: 8px 0 12px; }
+  .meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .stars { color: var(--accent); font-size: 12.5px; font-weight: 600; }
+
+  .progress-card { display: flex; gap: 18px; align-items: center; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); padding: 24px; }
+  .pc-ring { flex: none; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font-family: var(--serif); font-size: 20px; background: var(--accent-tint); color: var(--accent-deep); border: 1px solid var(--accent-soft); }
+
+  .consensus { border: 1.5px solid var(--accent); border-radius: 16px; background: linear-gradient(180deg, var(--accent-tint), var(--paper) 70%); padding: 24px; margin-bottom: 30px; position: relative; }
+  .consensus .tag { position: absolute; top: -11px; left: 24px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; letter-spacing: .05em; padding: 3px 13px; border-radius: 99px; }
+  .consensus h2 { font-size: 23px; margin: 4px 0 12px; }
+  .clead { font-size: 15px; line-height: 1.6; margin-bottom: 14px; }
+  .cpoint { display: flex; gap: 11px; padding: 7px 0; font-size: 15px; align-items: flex-start; }
+  .cnote { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--accent-soft); font-size: 13.5px; color: var(--ink-soft); }
+
+  .ava { border-radius: 50%; background: var(--accent-tint); color: var(--accent-deep); display: grid; place-items: center; font-family: var(--serif); flex-shrink: 0; }
+  .ava.sm { width: 24px; height: 24px; font-size: 11px; margin-top: 1px; }
+
+  .sec-title { font-family: var(--serif); font-size: 24px; margin: 34px 0 6px; }
+  .sec-sub { color: var(--ink-soft); font-size: 14px; margin-bottom: 18px; }
+
+  .q-block { border: 1px solid var(--line); border-radius: 14px; background: var(--paper); padding: 20px; margin-bottom: 16px; }
+  .q-block .q { font-size: 16px; font-weight: 600; margin-bottom: 14px; display: flex; gap: 10px; }
+  .q-block .q .qn { font-size: 11px; color: var(--accent); padding-top: 3px; }
+  .ans-grid { display: grid; gap: 12px; }
+  .ans { border: 1px solid var(--line); border-radius: 11px; background: var(--paper-2); padding: 13px 14px; }
+  .ans .dr { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
+  .ans .av { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-tint); color: var(--accent-deep); display: grid; place-items: center; font-family: var(--serif); font-size: 11px; }
+  .ans .dn { font-size: 12px; font-weight: 600; }
+  .ans .txt { font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+
+  .op { border: 1px solid var(--line); border-radius: 14px; background: var(--paper); margin-bottom: 14px; overflow: hidden; }
+  .op-head { display: flex; align-items: center; gap: 14px; padding: 18px 20px; cursor: pointer; width: 100%; background: none; border: 0; text-align: left; font: inherit; color: inherit; }
+  .op-head .av.lg { width: 46px; height: 46px; background: var(--ink); color: var(--paper); font-size: 17px; }
+  .op-head .nm { font-size: 16px; font-weight: 600; }
+  .op-head .cr { font-size: 12.5px; color: var(--ink-soft); }
+  .op-head .verdict { margin-left: auto; text-align: right; max-width: 300px; }
+  .op-head .verdict .vl { font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+  .op-head .verdict .vt { font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+  .op-head .car { margin-left: 8px; color: var(--ink-light); transition: transform .2s; flex-shrink: 0; }
+  .op.open .car { transform: rotate(180deg); }
+  .op-body { display: none; padding: 0 20px 22px 80px; border-top: 1px solid var(--line); }
+  .op.open .op-body { display: block; }
+  .op-body .blk { padding-top: 16px; }
+  .op-body .bl { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-light); margin-bottom: 5px; }
+  .op-body .bt { font-size: 14.5px; line-height: 1.6; }
+  .op-body .redflag { margin-top: 16px; padding: 13px 15px; border-radius: 10px; background: var(--danger-soft); color: var(--danger); font-size: 13.5px; line-height: 1.55; }
+
+  .foot { margin-top: 34px; padding-top: 24px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .back { margin-top: 22px; font-size: 13.5px; }
+
+  @media (max-width: 680px) {
+    .ans-grid { grid-template-columns: 1fr !important; }
+    .op-head .verdict { display: none; }
+    .op-body { padding-left: 20px; }
+  }
+</style>
+
+<!-- Print: expand every opinion, drop the site chrome + buttons, clean PDF. -->
+<style is:global>
+  @media print {
+    nav.nav, footer.footer, .no-print { display: none !important; }
+    .cov { padding: 0 !important; }
+    .op-body { display: block !important; }
+    .op .car { display: none !important; }
+    body { background: #fff !important; }
+  }
+</style>
+
+<script>
+  document.querySelectorAll('[data-op-toggle]').forEach((b) =>
+    b.addEventListener('click', () => b.closest('.op')?.classList.toggle('open')));
+  document.querySelector('[data-print]')?.addEventListener('click', () => window.print());
+</script>
