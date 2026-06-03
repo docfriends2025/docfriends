@@ -1,0 +1,48 @@
+---
+// Sidebar + main wrapper shared by the admin and doctor portals.
+// Pages render their own topbar + content into the default slot.
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { SITE } from '~/lib/site';
+import '~/styles/portal.css';
+
+interface Props { role: 'admin' | 'doctor'; active: string; title: string; }
+const { role, active, title } = Astro.props;
+
+const NAV: Record<Props['role'], { key: string; label: string; i: string; href?: string }[]> = {
+  admin: [
+    { key: 'overview', label: 'Overview', i: '▦', href: '/admin' },
+    { key: 'cases', label: 'Cases', i: '▤', href: '/admin' },
+    { key: 'doctors', label: 'Doctors', i: '✚' },
+    { key: 'packages', label: 'Packages', i: '▣' },
+    { key: 'settings', label: 'Settings', i: '⚙' },
+  ],
+  doctor: [
+    { key: 'inbox', label: 'Inbox', i: '✉', href: '/doctor' },
+    { key: 'active', label: 'Active cases', i: '▤' },
+    { key: 'submitted', label: 'Submitted', i: '✓' },
+    { key: 'teleconsults', label: 'Teleconsults', i: '▣' },
+    { key: 'profile', label: 'Profile', i: '◔' },
+  ],
+};
+const items = NAV[role];
+const portalLabel = role === 'admin' ? 'Admin portal' : 'Doctor portal';
+const home = role === 'admin' ? '/admin' : '/doctor';
+---
+
+<BaseLayout title={title} chrome={false} bodyClass="portal-body">
+  <div class="portal">
+    <aside class="side">
+      <a class="brand" href={home}><span class="bm"></span>DocFriends</a>
+      <span class="lbl">{portalLabel}</span>
+      {items.map((it) => (
+        it.href
+          ? <a class:list={['nav', { on: it.key === active }]} href={it.href}><span class="i">{it.i}</span>{it.label}</a>
+          : <span class="nav disabled"><span class="i">{it.i}</span>{it.label}</span>
+      ))}
+      {role === 'admin' && <div class="foot faint">{SITE.supportEmail}</div>}
+    </aside>
+    <main class="main">
+      <slot />
+    </main>
+  </div>
+</BaseLayout>

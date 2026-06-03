@@ -1,0 +1,87 @@
+---
+// /admin — Admin overview. Admin-role guarded by middleware.
+import PortalShell from '~/components/PortalShell.astro';
+import { getEnv, getDb } from '~/lib/db';
+import { formatUSD, initialsFrom } from '~/lib/format';
+
+export const prerender = false;
+
+const env = getEnv(Astro.locals);
+const user = Astro.locals.user!;
+const db = getDb(env);
+
+const d = new Date();
+const monthStart = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
+
+const [activeRes, paidRes, revRes, docRes, specRes, attnRes] = await Promise.all([
+  db.execute("SELECT COUNT(*) n FROM cases WHERE status IN ('submitted','assigning','matched','in_progress')"),
+  db.execute({ sql: "SELECT COUNT(*) n FROM payments WHERE status='paid' AND created_at >= ?", args: [monthStart] }),
+  db.execute({ sql: "SELECT COALESCE(SUM(amount_cents),0) s FROM payments WHERE status='paid' AND created_at >= ?", args: [monthStart] }),
+  db.execute("SELECT COUNT(*) n FROM doctors WHERE active=1"),
+  db.execute("SELECT COUNT(*) n FROM specialties WHERE active=1"),
+  db.execute(`SELECT c.id, c.ref, c.status, c.specialty_slug, c.package_slug,
+                     p.name pkg_name, p.opinion_count, s.name spec_name,
+                     (SELECT COUNT(*) FROM case_doctors cd WHERE cd.case_id = c.id AND cd.status != 'declined') assigned
+              FROM cases c
+              LEFT JOIN packages p ON p.slug = c.package_slug
+              LEFT JOIN specialties s ON s.slug = c.specialty_slug
+              WHERE c.payment_status='paid' AND c.status NOT IN ('delivered','closed','draft')
+              ORDER BY c.created_at DESC`),
+]);
+
+const activeCount = Number(activeRes.rows[0].n);
+const paidCount = Number(paidRes.rows[0].n);
+const revenue = Number(revRes.rows[0].s);
+const doctorCount = Number(docRes.rows[0].n);
+const specialtyCount = Number(specRes.rows[0].n);
+
+const attention = attnRes.rows.map((r) => {
+  const opinionCount = r.opinion_count != null ? Number(r.opinion_count) : 0;
+  const assigned = Number(r.assigned);
+  const needsCategory = !r.specialty_slug;
+  const needsAssignment = !needsCategory && assigned < opinionCount;
+  return {
+    id: String(r.id), ref: String(r.ref ?? '—'), status: String(r.status),
+    pkgName: r.pkg_name ? String(r.pkg_name) : 'Case', opinionCount,
+    specName: r.spec_name ? String(r.spec_name) : null, assigned, needsCategory, needsAssignment,
+  };
+}).filter((c) => c.needsCategory || c.needsAssignment);
+
+const who = `${user.name ?? user.email} · admin`;
+---
+
+<PortalShell role="admin" active="overview" title="Overview — DocFriends admin">
+  <div class="topbar">
+    <div><div class="eyebrow">Admin dashboard</div><h1>Overview</h1></div>
+    <span class="who"><span class="ava">{initialsFrom(user.name, user.email)}</span> {who}</span>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="k-l">Cases active</div><div class="k-n">{activeCount}</div><div class="k-s">{attention.length} awaiting your action</div></div>
+    <div class="kpi"><div class="k-l">Paid this month</div><div class="k-n">{paidCount}</div><div class="k-s">orders confirmed</div></div>
+    <div class="kpi"><div class="k-l">Revenue · month</div><div class="k-n">{formatUSD(revenue)}</div><div class="k-s">from paid orders</div></div>
+    <div class="kpi"><div class="k-l">Doctors</div><div class="k-n">{doctorCount}</div><div class="k-s">across {specialtyCount} specialties</div></div>
+  </div>
+
+  <div class="card">
+    <div class="sec-head">
+      <h2>Cases needing attention</h2>
+      {attention.length > 0 && <span class="chip warn">{attention.length} waiting on you</span>}
+    </div>
+    {attention.length === 0
+      ? <div class="empty">All caught up — no paid cases are waiting on a category or assignment.</div>
+      : attention.map((c) => (
+        <div class="rowline">
+          <span class="ref">#{c.ref}</span>
+          <div>
+            <div class="t">{c.pkgName}{c.opinionCount ? ` · ${c.opinionCount} opinion${c.opinionCount > 1 ? 's' : ''}` : ''}</div>
+            <div class="sub">Paid · {c.status} · {c.specName ? c.specName : 'no specialty set'}{!c.needsCategory ? ` · ${c.assigned}/${c.opinionCount} assigned` : ''}</div>
+          </div>
+          {c.needsCategory
+            ? <span class="chip warn">needs category</span>
+            : <span class="chip accent">needs assignment</span>}
+          <a class="btn primary sm" href={`/admin/cases/${c.id}`}>{c.needsCategory ? 'Set category →' : 'Assign →'}</a>
+        </div>
+      ))}
+  </div>
+</PortalShell>

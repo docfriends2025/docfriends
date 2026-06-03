@@ -1,0 +1,133 @@
+---
+// /doctor — Doctor inbox. Doctor-role guarded by middleware. Patient anonymized.
+import PortalShell from '~/components/PortalShell.astro';
+import { getEnv, getDb, now } from '~/lib/db';
+import { initialsFrom } from '~/lib/format';
+import { doctorForUser, ageSexCompact, snippet } from '~/lib/portal';
+
+export const prerender = false;
+
+const env = getEnv(Astro.locals);
+const user = Astro.locals.user!;
+const doctor = await doctorForUser(env, user.id);
+
+interface Card { caseId: string; ref: string; who: string; symptom: string; spec: string | null; pkg: string | null; status: string; commissionCents: number | null; offeredAt: number | null; }
+let open: Card[] = [], progress: Card[] = [], submitted: Card[] = [];
+
+if (doctor) {
+  const res = await getDb(env).execute({
+    sql: `SELECT cd.case_id, cd.status cd_status, cd.commission_cents, cd.offered_at,
+                 c.ref, c.symptoms, c.demographics_json,
+                 s.name spec_name, p.name pkg_name
+          FROM case_doctors cd
+          JOIN cases c ON c.id = cd.case_id
+          LEFT JOIN specialties s ON s.slug = c.specialty_slug
+          LEFT JOIN packages p ON p.slug = c.package_slug
+          WHERE cd.doctor_id = ?
+          ORDER BY cd.offered_at DESC`,
+    args: [doctor.id],
+  });
+  for (const r of res.rows) {
+    const card: Card = {
+      caseId: String(r.case_id), ref: String(r.ref ?? '—'),
+      who: ageSexCompact(r.demographics_json ? String(r.demographics_json) : null),
+      symptom: snippet(r.symptoms ? String(r.symptoms) : null, 46),
+      spec: r.spec_name ? String(r.spec_name) : null, pkg: r.pkg_name ? String(r.pkg_name) : null,
+      status: String(r.cd_status), commissionCents: r.commission_cents != null ? Number(r.commission_cents) : null,
+      offeredAt: r.offered_at != null ? Number(r.offered_at) : null,
+    };
+    if (card.status === 'offered') open.push(card);
+    else if (card.status === 'accepted' || card.status === 'drafting') progress.push(card);
+    else if (card.status === 'submitted') submitted.push(card);
+  }
+}
+
+const hoursLeft = (offeredAt: number | null): string => {
+  if (!offeredAt) return '24h SLA';
+  const h = Math.round((offeredAt + 24 * 3600 * 1000 - now()) / 3600000);
+  return h > 0 ? `${h}h left` : 'due now';
+};
+const pay = (c: number | null) => (c != null ? `$${Math.round(c / 100)} on submit` : '');
+---
+
+<PortalShell role="doctor" active="inbox" title="Inbox — DocFriends doctor">
+  <div class="topbar">
+    <div>
+      <div class="eyebrow">Doctor portal</div>
+      <h1>{doctor ? `Welcome, ${doctor.name}` : 'Doctor portal'}</h1>
+      {doctor && <div class="muted" style="font-size:13px">{doctor.specialtySlug ? doctor.specialtySlug.replace(/_/g, ' ') : 'Specialist'} · {open.length} open request{open.length === 1 ? '' : 's'}</div>}
+    </div>
+    <span class="who"><span class="ava">{doctor?.initials ?? initialsFrom(user.name, user.email)}</span> {user.name ?? user.email}</span>
+  </div>
+
+  {!doctor ? (
+    <div class="card"><div class="empty">No active doctor profile is linked to this account. Ask an admin to link you in the <span class="mono">doctors</span> table.</div></div>
+  ) : (
+    <div class="kanban" data-inbox>
+      <div>
+        <div class="col-h"><span class="ct">Open requests</span><span class="chip accent">{open.length}</span></div>
+        {open.length === 0 && <div class="empty">No new requests.</div>}
+        {open.map((c) => (
+          <div class="ccard req" data-card data-case-id={c.caseId}>
+            <div class="cref">#{c.ref}</div>
+            <div class="ct2">{c.who} · {c.symptom}</div>
+            <div class="tags">{c.spec && <span class="chip">{c.spec}</span>}{c.pkg && <span class="chip">{c.pkg}</span>}</div>
+            <div class="acts">
+              <span class="pay">{pay(c.commissionCents)} · {hoursLeft(c.offeredAt)}</span>
+              <button class="btn ghost sm" data-decline>Decline</button>
+              <button class="btn primary sm" data-accept>Accept</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div>
+        <div class="col-h"><span class="ct">In progress</span><span class="chip">{progress.length}</span></div>
+        {progress.length === 0 && <div class="empty">Nothing in progress.</div>}
+        {progress.map((c) => (
+          <div class="ccard">
+            <div class="cref">#{c.ref}</div>
+            <div class="ct2">{c.who} · {c.symptom}</div>
+            <div class="tags">{c.spec && <span class="chip">{c.spec}</span>}{c.pkg && <span class="chip">{c.pkg}</span>}</div>
+            <div class="acts"><span class="pay">{c.status === 'drafting' ? 'draft saved' : 'accepted'}</span><a class="btn primary sm" href={`/doctor/cases/${c.caseId}`}>Continue →</a></div>
+          </div>
+        ))}
+      </div>
+      <div>
+        <div class="col-h"><span class="ct">Submitted</span><span class="chip ok">{submitted.length}</span></div>
+        {submitted.length === 0 && <div class="empty">No submitted opinions yet.</div>}
+        {submitted.map((c) => (
+          <div class="ccard">
+            <div class="cref">#{c.ref}</div>
+            <div class="ct2">{c.who} · {c.symptom}</div>
+            <div class="tags">{c.pkg && <span class="chip">{c.pkg}</span>}<span class="chip ok">submitted</span></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
+</PortalShell>
+
+<script>
+  const inbox = document.querySelector<HTMLElement>('[data-inbox]');
+  if (inbox) {
+    const post = (caseId: string, action: 'accept' | 'decline') =>
+      fetch('/api/doctor/case/respond', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ caseId, action }) })
+        .then((r) => r.json() as Promise<{ ok?: boolean; error?: string }>);
+
+    inbox.querySelectorAll<HTMLElement>('[data-card]').forEach((card) => {
+      const caseId = card.dataset.caseId!;
+      card.querySelector('[data-accept]')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget as HTMLButtonElement; btn.disabled = true; btn.textContent = '…';
+        const d = await post(caseId, 'accept');
+        if (d.ok) location.href = `/doctor/cases/${caseId}`;
+        else { btn.disabled = false; btn.textContent = 'Accept'; alert(d.error || 'Could not accept.'); }
+      });
+      card.querySelector('[data-decline]')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget as HTMLButtonElement; btn.disabled = true;
+        const d = await post(caseId, 'decline');
+        if (d.ok) card.remove();
+        else { btn.disabled = false; alert(d.error || 'Could not decline.'); }
+      });
+    });
+  }
+</script>

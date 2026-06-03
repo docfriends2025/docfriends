@@ -1,0 +1,186 @@
+---
+// /admin/cases/[id] — set specialty + assign doctors. Admin-role guarded by middleware.
+import PortalShell from '~/components/PortalShell.astro';
+import { getEnv, getDb } from '~/lib/db';
+import { formatUSD, initialsFrom } from '~/lib/format';
+import { doctorsInSpecialty, fitFromRating, ageSexCompact, questionsOf, type Doctor } from '~/lib/portal';
+
+export const prerender = false;
+
+const env = getEnv(Astro.locals);
+const user = Astro.locals.user!;
+const db = getDb(env);
+const { id } = Astro.params;
+
+const caseRes = await db.execute({
+  sql: `SELECT c.*, p.name pkg_name, p.opinion_count, p.price_cents pkg_price,
+               s.name spec_name, u.name client_name, u.email client_email,
+               (SELECT COUNT(*) FROM case_attachments ca WHERE ca.case_id = c.id) reports
+        FROM cases c
+        LEFT JOIN packages p ON p.slug = c.package_slug
+        LEFT JOIN specialties s ON s.slug = c.specialty_slug
+        LEFT JOIN users u ON u.id = c.user_id
+        WHERE c.id = ?`,
+  args: [id!],
+});
+const c = caseRes.rows[0] as Record<string, unknown> | undefined;
+
+let assignments: { doctorId: string; name: string; initials: string | null; status: string }[] = [];
+let pickable: Doctor[] = [];
+let specialties: { slug: string; name: string }[] = [];
+let opinionCount = 0, assignedActive = 0, slotsLeft = 0;
+const specialtySlug = c?.specialty_slug ? String(c.specialty_slug) : null;
+
+if (c) {
+  opinionCount = c.opinion_count != null ? Number(c.opinion_count) : 0;
+  const aRes = await db.execute({
+    sql: `SELECT cd.doctor_id, cd.status, d.name, d.initials
+          FROM case_doctors cd JOIN doctors d ON d.id = cd.doctor_id
+          WHERE cd.case_id = ? ORDER BY cd.offered_at`,
+    args: [id!],
+  });
+  assignments = aRes.rows.map((r) => ({ doctorId: String(r.doctor_id), name: String(r.name), initials: r.initials ? String(r.initials) : null, status: String(r.status) }));
+  assignedActive = assignments.filter((a) => a.status !== 'declined').length;
+  slotsLeft = Math.max(0, opinionCount - assignedActive);
+
+  if (!specialtySlug) {
+    const sRes = await db.execute("SELECT slug, name FROM specialties WHERE active=1 ORDER BY position");
+    specialties = sRes.rows.map((r) => ({ slug: String(r.slug), name: String(r.name) }));
+  } else {
+    const assignedIds = new Set(assignments.map((a) => a.doctorId));
+    pickable = (await doctorsInSpecialty(env, specialtySlug)).filter((d) => !assignedIds.has(d.id));
+  }
+}
+
+const questions = c ? questionsOf(c.questions_json ? String(c.questions_json) : null) : [];
+// Precompute branch flags (avoid a bare `<=` inside the template — Astro reads `<` as a tag).
+const showStep1 = !!c && !specialtySlug;
+const panelFull = !!c && !!specialtySlug && slotsLeft <= 0;
+const showStep2 = !!c && !!specialtySlug && slotsLeft > 0;
+const clientLabel = c
+  ? `${c.client_name ? String(c.client_name) : (c.client_email ? String(c.client_email) : 'Unknown client')}${(() => { const a = ageSexCompact(c.demographics_json ? String(c.demographics_json) : null); return a !== 'Patient' ? ` · ${a}` : ''; })()}`
+  : '';
+---
+
+<PortalShell role="admin" active="cases" title={c ? `Case #${c.ref ?? id} — assign` : 'Case — admin'}>
+  <div class="topbar">
+    <div><div class="eyebrow">Case assignment</div><h1>{c ? `Case #${c.ref ?? id}` : 'Case not found'}{c?.pkg_name ? ` · ${String(c.pkg_name)}` : ''}</h1></div>
+    <span class="who"><span class="ava">{initialsFrom(user.name, user.email)}</span> {user.name ?? user.email}</span>
+  </div>
+
+  {!c ? (
+    <div class="card"><div class="empty">No case with id <span class="mono">{id}</span>. <a href="/admin">← Back to overview</a></div></div>
+  ) : (
+    <div class="assign-grid" data-case-id={String(c.id)} data-opinion-count={opinionCount} data-slots-left={slotsLeft}>
+      <div class="card">
+        <h2 style="margin-bottom:14px">Case summary</h2>
+        <div class="summary-row"><span class="lab">Client</span><span>{clientLabel}</span></div>
+        <div class="summary-row"><span class="lab">Package</span><span>{c.pkg_name ? String(c.pkg_name) : '—'}{opinionCount ? ` · ${opinionCount} opinion${opinionCount > 1 ? 's' : ''}` : ''}{c.payment_status === 'paid' && c.pkg_price != null ? ` · paid ${formatUSD(Number(c.pkg_price))}` : ''}</span></div>
+        <div class="summary-row"><span class="lab">Specialty</span><span>{c.spec_name ? String(c.spec_name) : <span class="faint">— not set —</span>}</span></div>
+        <div class="summary-row"><span class="lab">Status</span><span>{String(c.status)}</span></div>
+        <div class="summary-row"><span class="lab">Symptoms</span><span><em>{c.symptoms ? `"${String(c.symptoms)}"` : '—'}</em></span></div>
+        <div class="summary-row"><span class="lab">Questions</span><span>{questions.length} noted</span></div>
+        <div class="summary-row"><span class="lab">Reports</span><span>{Number(c.reports)} attached</span></div>
+      </div>
+
+      <div class="card">
+        {assignments.length > 0 && (
+          <div style="margin-bottom:20px">
+            <div class="eyebrow ink" style="margin-bottom:8px">Current panel · {assignedActive}/{opinionCount}</div>
+            {assignments.map((a) => (
+              <div class="assigned-row">
+                <span class="ava" style="width:28px;height:28px;font-size:12px">{a.initials ?? initialsFrom(a.name)}</span>
+                <span style="font-weight:600;font-size:13.5px">{a.name}</span>
+                <span class:list={['chip', { ok: a.status === 'submitted', accent: a.status === 'accepted' || a.status === 'drafting' }]} style="margin-left:auto">{a.status}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {showStep1 ? (
+          <Fragment>
+            <div class="needs">⚠ This case has no specialty yet — set one to see matching doctors.</div>
+            <div class="eyebrow ink">Step 1 · Specialist category</div>
+            <select class="spec-select" data-spec-select>
+              <option value="">Choose a specialty…</option>
+              {specialties.map((s) => <option value={s.slug}>{s.name}</option>)}
+            </select>
+            <button class="btn primary" data-set-specialty disabled style="width:100%;justify-content:center;margin-top:12px">Set specialty</button>
+            <div class="alert-error" data-err hidden></div>
+          </Fragment>
+        ) : panelFull ? (
+          <div class="needs" style="background:var(--success-soft);color:var(--success)">✓ All {opinionCount} opinion{opinionCount > 1 ? 's' : ''} assigned. The case is with the panel.</div>
+        ) : showStep2 ? (
+          <Fragment>
+            <div class="eyebrow ink" style="margin-bottom:4px">Step 2 · Pick {slotsLeft} doctor{slotsLeft > 1 ? 's' : ''}</div>
+            <p class="faint" style="font-size:12px;margin-bottom:12px">Active {String(c.spec_name)} doctors, ranked by rating &amp; reviews. <b data-pick-count>0</b> of {slotsLeft} selected.</p>
+            {pickable.length === 0
+              ? <div class="empty">No other active doctors in this specialty to assign.</div>
+              : pickable.map((dctr) => (
+                <div class="doc-pick" data-doc-id={dctr.id}>
+                  <span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M20 6 9 17l-5-5"/></svg></span>
+                  <span class="da">{dctr.initials ?? initialsFrom(dctr.name)}</span>
+                  <span><span class="dn">{dctr.name}</span><br /><span class="dm">{[dctr.hospital, dctr.yearsPractice ? `${dctr.yearsPractice}y` : null].filter(Boolean).join(' · ')}</span></span>
+                  <span class="fit"><span class="stars">★ {dctr.rating.toFixed(2)}</span><br /><span class="chip accent" style="margin-top:3px">fit {fitFromRating(dctr.rating)}</span></span>
+                </div>
+              ))}
+            {pickable.length > 0 && (
+              <Fragment>
+                <button class="btn accent" data-confirm disabled style="width:100%;justify-content:center;margin-top:6px">Confirm &amp; notify doctors</button>
+                <div class="alert-error" data-err hidden></div>
+              </Fragment>
+            )}
+          </Fragment>
+        ) : null}
+      </div>
+    </div>
+  )}
+</PortalShell>
+
+<script>
+  const grid = document.querySelector<HTMLElement>('[data-case-id]');
+  if (grid) {
+    const caseId = grid.dataset.caseId!;
+    const slotsLeft = Number(grid.dataset.slotsLeft || 0);
+    const err = (msg: string) => { const e = grid.querySelector<HTMLElement>('[data-err]'); if (e) { e.hidden = false; e.textContent = msg; } };
+
+    // Step 1 — set specialty
+    const sel = grid.querySelector<HTMLSelectElement>('[data-spec-select]');
+    const setBtn = grid.querySelector<HTMLButtonElement>('[data-set-specialty]');
+    sel?.addEventListener('change', () => { if (setBtn) setBtn.disabled = !sel.value; });
+    setBtn?.addEventListener('click', async () => {
+      if (!sel?.value) return;
+      setBtn.disabled = true; setBtn.textContent = 'Setting…';
+      try {
+        const r = await fetch('/api/admin/case/specialty', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ caseId, specialty: sel.value }) });
+        const d = await r.json() as { ok?: boolean; error?: string };
+        if (!r.ok || !d.ok) throw new Error(d.error || 'Could not set specialty.');
+        location.reload();
+      } catch (e) { setBtn.disabled = false; setBtn.textContent = 'Set specialty'; err(e instanceof Error ? e.message : 'Error'); }
+    });
+
+    // Step 2 — pick + confirm
+    const picks = Array.from(grid.querySelectorAll<HTMLElement>('.doc-pick'));
+    const countEl = grid.querySelector<HTMLElement>('[data-pick-count]');
+    const confirmBtn = grid.querySelector<HTMLButtonElement>('[data-confirm]');
+    const selected = () => picks.filter((p) => p.classList.contains('sel')).map((p) => p.dataset.docId!);
+    picks.forEach((p) => p.addEventListener('click', () => {
+      if (!p.classList.contains('sel') && selected().length >= slotsLeft) return;
+      p.classList.toggle('sel');
+      const n = selected().length;
+      if (countEl) countEl.textContent = String(n);
+      if (confirmBtn) confirmBtn.disabled = n === 0;
+    }));
+    confirmBtn?.addEventListener('click', async () => {
+      const ids = selected();
+      if (!ids.length) return;
+      confirmBtn.disabled = true; confirmBtn.textContent = 'Assigning…';
+      try {
+        const r = await fetch('/api/admin/case/assign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ caseId, doctorIds: ids }) });
+        const d = await r.json() as { ok?: boolean; error?: string };
+        if (!r.ok || !d.ok) throw new Error(d.error || 'Could not assign.');
+        location.reload();
+      } catch (e) { confirmBtn.disabled = false; confirmBtn.textContent = 'Confirm & notify doctors'; err(e instanceof Error ? e.message : 'Error'); }
+    });
+  }
+</script>

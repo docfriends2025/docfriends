@@ -1,0 +1,161 @@
+---
+// /doctor/cases/[id] — write a structured opinion. Doctor-role guarded by middleware.
+// The doctor must be assigned to this case. Patient is anonymized (no name/email).
+import PortalShell from '~/components/PortalShell.astro';
+import { getEnv, getDb, now } from '~/lib/db';
+import { initialsFrom, parseJSON } from '~/lib/format';
+import { doctorForUser, ageSexLong, questionsOf } from '~/lib/portal';
+
+export const prerender = false;
+
+const env = getEnv(Astro.locals);
+const user = Astro.locals.user!;
+const { id } = Astro.params;
+const db = getDb(env);
+const doctor = await doctorForUser(env, user.id);
+
+let notAllowed: string | null = null;
+let c: Record<string, unknown> | undefined;
+let assignStatus = '', offeredAt: number | null = null;
+let attachments: string[] = [];
+let questions: string[] = [];
+let opinion: { verdict: string; diagnosisReview: string; nextSteps: string; answers: string[]; redFlags: string; status: string } | null = null;
+
+if (!doctor) {
+  notAllowed = 'No active doctor profile is linked to this account.';
+} else {
+  const r = await db.execute({
+    sql: `SELECT c.*, cd.status cd_status, cd.offered_at
+          FROM cases c JOIN case_doctors cd ON cd.case_id = c.id
+          WHERE c.id = ? AND cd.doctor_id = ?`,
+    args: [id!, doctor.id],
+  });
+  c = r.rows[0] as Record<string, unknown> | undefined;
+  if (!c) notAllowed = 'This case is not assigned to you (or does not exist).';
+  else if (String(c.cd_status) === 'declined') notAllowed = 'You declined this case.';
+  else {
+    assignStatus = String(c.cd_status);
+    offeredAt = c.offered_at != null ? Number(c.offered_at) : null;
+    questions = questionsOf(c.questions_json ? String(c.questions_json) : null);
+    const at = await db.execute({ sql: 'SELECT file_name FROM case_attachments WHERE case_id = ? ORDER BY created_at', args: [id!] });
+    attachments = at.rows.map((x) => String(x.file_name));
+    const op = await db.execute({ sql: 'SELECT verdict, diagnosis_review, next_steps, answers_json, red_flags, status FROM opinions WHERE case_id = ? AND doctor_id = ?', args: [id!, doctor.id] });
+    if (op.rows[0]) {
+      const o = op.rows[0] as Record<string, unknown>;
+      opinion = {
+        verdict: o.verdict ? String(o.verdict) : '', diagnosisReview: o.diagnosis_review ? String(o.diagnosis_review) : '',
+        nextSteps: o.next_steps ? String(o.next_steps) : '', answers: parseJSON<string[]>(o.answers_json ? String(o.answers_json) : null, []),
+        redFlags: o.red_flags ? String(o.red_flags) : '', status: String(o.status),
+      };
+    }
+  }
+}
+
+const dueLabel = (() => {
+  if (!offeredAt) return null;
+  const ms = offeredAt + 24 * 3600 * 1000 - now();
+  if (ms <= 0) return 'overdue';
+  const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
+  return `${h}h ${m}m`;
+})();
+const ans = (i: number) => (opinion?.answers[i] ?? '');
+// Attachment filenames can contain the patient's name — show a neutral, type-only
+// label so the doctor file stays anonymized.
+const fileKind = (f: string): string => {
+  const m = f.toLowerCase().match(/\.([a-z0-9]+)$/);
+  const e = m ? m[1] : '';
+  return e === 'dcm' ? 'DICOM' : e ? e.toUpperCase() : 'FILE';
+};
+const submitted = opinion?.status === 'submitted' || assignStatus === 'submitted';
+---
+
+<PortalShell role="doctor" active="active" title={c ? `Case #${c.ref ?? id} — opinion` : 'Case — doctor'}>
+  <div class="topbar">
+    <div>
+      <div class="eyebrow">Case file · write opinion</div>
+      <h1>{c ? `Case #${c.ref ?? id} · ${ageSexLong(c.demographics_json ? String(c.demographics_json) : null)}` : 'Case'}</h1>
+      {c && dueLabel && <div class="muted" style="font-size:13px">{c.status === 'delivered' ? 'Delivered' : `Due in ${dueLabel}`}</div>}
+    </div>
+    <span class="who"><span class="ava">{doctor?.initials ?? initialsFrom(user.name, user.email)}</span> {user.name ?? user.email}</span>
+  </div>
+
+  {notAllowed ? (
+    <div class="card"><div class="empty">{notAllowed} <a href="/doctor">← Back to inbox</a></div></div>
+  ) : (
+    <div class="op-grid" data-case-id={String(c!.id)} data-qcount={questions.length}>
+      <!-- anonymized patient file -->
+      <div class="card">
+        <div class="eyebrow ink" style="margin-bottom:10px">Patient · anonymized</div>
+        <div class="file-row"><div class="fl">Age / sex</div>{ageSexLong(c!.demographics_json ? String(c!.demographics_json) : null)}</div>
+        <div class="file-row"><div class="fl">Existing diagnosis</div>{c!.diagnosis ? String(c!.diagnosis) : '—'}</div>
+        <div class="file-row"><div class="fl">Medications</div>{c!.medications ? String(c!.medications) : '—'}</div>
+        <div class="file-row"><div class="fl">Symptoms · their words</div><em>{c!.symptoms ? `"${String(c!.symptoms)}"` : '—'}</em></div>
+        <div class="file-row"><div class="fl">Their questions</div>
+          {questions.length === 0 ? <span class="muted">None provided</span> : questions.map((q, i) => (
+            <div class="qa"><span class="qn">Q{i + 1}</span>{q}</div>
+          ))}
+        </div>
+        <div class="file-row"><div class="fl">Reports</div>
+          {attachments.length === 0 ? <span class="muted">None attached</span> : attachments.map((f, i) => <span class="att">📎 Report {i + 1} · {fileKind(f)}</span>)}
+        </div>
+      </div>
+
+      <!-- structured response -->
+      <div class="card">
+        <div class="sec-head"><h2>Your structured opinion</h2><span class:list={['chip', { ok: submitted }]}>{submitted ? 'submitted' : 'draft · autosaves off'}</span></div>
+        <div class="op-field"><label><span class="op-num">1</span>Verdict · one line</label><input class="op-input" data-f="verdict" value={opinion?.verdict ?? ''} placeholder="e.g. Angiogram not indicated at this stage." /></div>
+        <div class="op-field"><label><span class="op-num">2</span>Diagnosis review</label><textarea class="op-input" data-f="diagnosisReview" placeholder="Your read of the findings…">{opinion?.diagnosisReview ?? ''}</textarea></div>
+        <div class="op-field"><label><span class="op-num">3</span>Recommended next steps</label><textarea class="op-input" data-f="nextSteps" placeholder="What you'd advise…">{opinion?.nextSteps ?? ''}</textarea></div>
+        <div class="op-field"><label><span class="op-num">4</span>Answers to their questions</label>
+          {questions.length === 0
+            ? <textarea class="op-input" data-ans placeholder="No specific questions — add any direct notes to the patient…" style="min-height:48px">{ans(0)}</textarea>
+            : questions.map((q, i) => (
+              <textarea class="op-input" data-ans placeholder={`Q${i + 1} — ${q}`} style="margin-bottom:8px;min-height:48px">{ans(i)}</textarea>
+            ))}
+        </div>
+        <div class="op-field"><label><span class="op-num">5</span>When to escalate · red flags</label><textarea class="op-input" data-f="redFlags" placeholder="Symptoms that warrant urgent care…" style="min-height:48px">{opinion?.redFlags ?? ''}</textarea></div>
+        <div style="display:flex;gap:10px;margin-top:6px">
+          <button class="btn ghost" data-save>Save draft</button>
+          <button class="btn primary" data-submit style="flex:1;justify-content:center">Submit opinion →</button>
+        </div>
+        <div class="toast" data-toast></div>
+        <div class="alert-error" data-err hidden></div>
+      </div>
+    </div>
+  )}
+</PortalShell>
+
+<script>
+  const grid = document.querySelector<HTMLElement>('[data-case-id]');
+  if (grid) {
+    const caseId = grid.dataset.caseId!;
+    const val = (f: string) => (grid.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[data-f="${f}"]`)?.value ?? '').trim();
+    const answers = () => Array.from(grid.querySelectorAll<HTMLTextAreaElement>('[data-ans]')).map((t) => t.value.trim());
+    const toast = grid.querySelector<HTMLElement>('[data-toast]')!;
+    const err = grid.querySelector<HTMLElement>('[data-err]')!;
+    const saveBtn = grid.querySelector<HTMLButtonElement>('[data-save]')!;
+    const submitBtn = grid.querySelector<HTMLButtonElement>('[data-submit]')!;
+
+    async function send(submit: boolean) {
+      err.hidden = true; toast.classList.remove('show');
+      const payload = { caseId, submit, verdict: val('verdict'), diagnosisReview: val('diagnosisReview'), nextSteps: val('nextSteps'), redFlags: val('redFlags'), answers: answers() };
+      const btn = submit ? submitBtn : saveBtn;
+      const label = btn.textContent; btn.disabled = true; btn.textContent = submit ? 'Submitting…' : 'Saving…';
+      try {
+        const r = await fetch('/api/doctor/opinion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const d = await r.json() as { ok?: boolean; error?: string; caseStatus?: string };
+        if (!r.ok || !d.ok) throw new Error(d.error || 'Could not save.');
+        if (submit) {
+          toast.textContent = d.caseStatus === 'delivered'
+            ? '✓ Opinion submitted — all panel opinions are in, the case is delivered to the client.'
+            : '✓ Opinion submitted. The client sees the panel once every doctor has submitted.';
+          toast.classList.add('show'); submitBtn.textContent = '✓ Submitted'; submitBtn.disabled = true; saveBtn.disabled = true;
+        } else {
+          toast.textContent = '✓ Draft saved.'; toast.classList.add('show'); btn.disabled = false; btn.textContent = label;
+        }
+      } catch (e) { btn.disabled = false; btn.textContent = label; err.hidden = false; err.textContent = e instanceof Error ? e.message : 'Error'; }
+    }
+    saveBtn.addEventListener('click', () => send(false));
+    submitBtn.addEventListener('click', () => send(true));
+  }
+</script>
