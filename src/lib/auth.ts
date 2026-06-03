@@ -139,22 +139,23 @@ export async function getUserByEmail(env: Env, email: string): Promise<UserWithH
   return { ...rowToUser(row as Record<string, unknown>), passwordHash: row.password_hash ? String(row.password_hash) : null };
 }
 
-/** Create a client account with a password (email unverified). Returns null if the email exists. */
-export async function createPasswordUser(env: Env, opts: { email: string; name: string | null; passwordHash: string }): Promise<User | null> {
+/** Create an account with a password (email unverified). Returns null if the email exists. */
+export async function createPasswordUser(env: Env, opts: { email: string; name: string | null; passwordHash: string; role?: Role }): Promise<User | null> {
   const e = safeEmail(opts.email);
   if (!e) return null;
+  const role: Role = opts.role ?? 'client';
   const id = ulid();
   const ts = now();
   try {
     await getDb(env).execute({
       sql: `INSERT INTO users (id, email, name, phone, role, email_verified_at, password_hash, created_at, last_seen_at)
-            VALUES (?, ?, ?, NULL, 'client', NULL, ?, ?, ?)`,
-      args: [id, e, opts.name ?? null, opts.passwordHash, ts, ts],
+            VALUES (?, ?, ?, NULL, ?, NULL, ?, ?, ?)`,
+      args: [id, e, opts.name ?? null, role, opts.passwordHash, ts, ts],
     });
   } catch {
     return null; // UNIQUE(email) → already registered
   }
-  return { id, email: e, name: opts.name ?? null, phone: null, role: 'client', emailVerifiedAt: null, createdAt: ts, lastSeenAt: ts };
+  return { id, email: e, name: opts.name ?? null, phone: null, role, emailVerifiedAt: null, createdAt: ts, lastSeenAt: ts };
 }
 
 export async function setUserPassword(env: Env, userId: string, passwordHash: string): Promise<void> {

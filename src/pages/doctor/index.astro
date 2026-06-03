@@ -3,13 +3,15 @@
 import PortalShell from '~/components/PortalShell.astro';
 import { getEnv, getDb, now } from '~/lib/db';
 import { initialsFrom } from '~/lib/format';
-import { doctorForUser, ageSexCompact, snippet } from '~/lib/portal';
+import { doctorForUser, doctorApplicationForUser, ageSexCompact, snippet } from '~/lib/portal';
 
 export const prerender = false;
 
 const env = getEnv(Astro.locals);
 const user = Astro.locals.user!;
 const doctor = await doctorForUser(env, user.id);
+// Only consulted when there's no ACTIVE profile — drives the pending/rejected states.
+const app = doctor ? null : await doctorApplicationForUser(env, user.id);
 
 interface Card { caseId: string; ref: string; who: string; symptom: string; spec: string | null; pkg: string | null; status: string; commissionCents: number | null; offeredAt: number | null; }
 let open: Card[] = [], progress: Card[] = [], submitted: Card[] = [];
@@ -61,7 +63,21 @@ const pay = (c: number | null) => (c != null ? `$${Math.round(c / 100)} on submi
   </div>
 
   {!doctor ? (
-    <div class="card"><div class="empty">No active doctor profile is linked to this account. Ask an admin to link you in the <span class="mono">doctors</span> table.</div></div>
+    app && app.status === 'pending' ? (
+      <div class="card" style="max-width:620px">
+        <div class="eyebrow ink">Application received</div>
+        <h2 style="font-family:var(--serif);font-size:23px;margin:6px 0 10px">Your application is under review</h2>
+        <p class="muted">Thanks for applying, {app.name}. Our team is verifying your credentials — you'll get an email the moment you're approved, and your case inbox will appear here. You don't have access to any cases yet.</p>
+      </div>
+    ) : app && app.status === 'rejected' ? (
+      <div class="card" style="max-width:620px">
+        <div class="eyebrow ink">Application status</div>
+        <h2 style="font-family:var(--serif);font-size:23px;margin:6px 0 10px">Not approved</h2>
+        <p class="muted">We weren't able to approve your application at this time.{app.reviewNotes ? ` ${app.reviewNotes}` : ''} If you believe this was in error, please contact us.</p>
+      </div>
+    ) : (
+      <div class="card"><div class="empty">No active doctor profile is linked to this account. <a href="/for-physicians/apply">Apply to join</a>, or ask an admin to link you.</div></div>
+    )
   ) : (
     <div class="kanban" data-inbox>
       <div>

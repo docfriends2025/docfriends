@@ -1,0 +1,85 @@
+---
+// /admin/doctors — active roster + pending applications. Admin-role guarded by middleware.
+import PortalShell from '~/components/PortalShell.astro';
+import { getEnv, getDb } from '~/lib/db';
+import { formatDate, initialsFrom } from '~/lib/format';
+
+export const prerender = false;
+const env = getEnv(Astro.locals);
+const user = Astro.locals.user!;
+
+const res = await getDb(env).execute(`
+  SELECT d.id, d.name, d.initials, d.hospital, d.location, d.years_practice, d.rating, d.active,
+         d.application_status, d.applied_at, s.name spec_name
+  FROM doctors d LEFT JOIN specialties s ON s.slug = d.specialty_slug
+  ORDER BY d.applied_at DESC, d.name`);
+
+const rows = res.rows.map((r) => ({
+  id: String(r.id), name: String(r.name), initials: r.initials ? String(r.initials) : initialsFrom(String(r.name)),
+  hospital: r.hospital ? String(r.hospital) : null, years: r.years_practice != null ? Number(r.years_practice) : null,
+  rating: r.rating != null ? Number(r.rating) : 0, active: !!Number(r.active),
+  status: r.application_status ? String(r.application_status) : 'pending',
+  appliedAt: r.applied_at != null ? Number(r.applied_at) : null, spec: r.spec_name ? String(r.spec_name) : null,
+}));
+const pending = rows.filter((r) => r.status === 'pending');
+const active = rows.filter((r) => r.active && r.status === 'approved');
+const rejected = rows.filter((r) => r.status === 'rejected');
+---
+
+<PortalShell role="admin" active="doctors" title="Doctors — DocFriends admin">
+  <div class="topbar">
+    <div><div class="eyebrow">Network</div><h1>Doctors</h1></div>
+    <span class="who"><span class="ava">{initialsFrom(user.name, user.email)}</span> {user.name ?? user.email}</span>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="sec-head">
+      <h2>Pending applications</h2>
+      {pending.length > 0 && <span class="chip warn">{pending.length} to review</span>}
+    </div>
+    {pending.length === 0
+      ? <div class="empty">No applications waiting.</div>
+      : pending.map((d) => (
+        <div class="rowline">
+          <span class="ava" style="width:34px;height:34px">{d.initials}</span>
+          <div>
+            <div class="t">{d.name}</div>
+            <div class="sub">{[d.spec, d.hospital].filter(Boolean).join(' · ') || 'Applicant'}{d.appliedAt ? ` · applied ${formatDate(d.appliedAt)}` : ''}</div>
+          </div>
+          <span class="chip warn">pending</span>
+          <a class="btn primary sm" href={`/admin/doctors/${d.id}`}>Review →</a>
+        </div>
+      ))}
+  </div>
+
+  <div class="card">
+    <div class="sec-head"><h2>Active doctors</h2><span class="chip ok">{active.length}</span></div>
+    {active.length === 0
+      ? <div class="empty">No active doctors yet.</div>
+      : active.map((d) => (
+        <div class="rowline">
+          <span class="ava" style="width:34px;height:34px">{d.initials}</span>
+          <div>
+            <div class="t">{d.name}</div>
+            <div class="sub">{[d.spec, d.hospital, d.years ? `${d.years}y` : null].filter(Boolean).join(' · ')}</div>
+          </div>
+          <span class="stars">★ {d.rating.toFixed(2)}</span>
+          <a class="btn ghost sm" href={`/admin/doctors/${d.id}`}>View →</a>
+        </div>
+      ))}
+  </div>
+
+  {rejected.length > 0 && (
+    <div class="card" style="margin-top:20px">
+      <div class="sec-head"><h2>Rejected</h2><span class="chip">{rejected.length}</span></div>
+      {rejected.map((d) => (
+        <div class="rowline">
+          <span class="ava" style="width:34px;height:34px">{d.initials}</span>
+          <div><div class="t">{d.name}</div><div class="sub">{d.spec ?? 'Applicant'}</div></div>
+          <span class="chip">rejected</span>
+          <a class="btn ghost sm" href={`/admin/doctors/${d.id}`}>View →</a>
+        </div>
+      ))}
+    </div>
+  )}
+</PortalShell>

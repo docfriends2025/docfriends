@@ -28,6 +28,24 @@ export async function doctorForUser(env: Env, userId: string): Promise<Doctor | 
   return r.rows[0] ? rowToDoctor(r.rows[0] as Record<string, unknown>) : null;
 }
 
+export interface DoctorApplication { id: string; status: string; active: boolean; name: string; specialtySlug: string | null; reviewNotes: string | null; }
+
+/** The doctor application/profile for a user REGARDLESS of active state (for portal gating).
+ *  Access to cases is gated separately on doctorForUser (active=1). */
+export async function doctorApplicationForUser(env: Env, userId: string): Promise<DoctorApplication | null> {
+  const r = await getDb(env).execute({
+    sql: 'SELECT id, application_status, active, name, specialty_slug, review_notes FROM doctors WHERE user_id = ? ORDER BY applied_at DESC, created_at DESC LIMIT 1',
+    args: [userId],
+  });
+  const row = r.rows[0];
+  if (!row) return null;
+  return {
+    id: String(row.id), status: row.application_status ? String(row.application_status) : 'pending',
+    active: !!Number(row.active), name: String(row.name), specialtySlug: row.specialty_slug ? String(row.specialty_slug) : null,
+    reviewNotes: row.review_notes ? String(row.review_notes) : null,
+  };
+}
+
 /** Active doctors in a specialty, best-fit first. */
 export async function doctorsInSpecialty(env: Env, slug: string): Promise<Doctor[]> {
   const r = await getDb(env).execute({

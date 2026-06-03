@@ -1,0 +1,99 @@
+---
+// /admin/doctors/[id] — full application incl. ADMIN-ONLY credentials; approve/reject.
+// Admin-role guarded by middleware. License/credential data lives ONLY here.
+import PortalShell from '~/components/PortalShell.astro';
+import { getEnv, getDb } from '~/lib/db';
+import { formatDate, initialsFrom } from '~/lib/format';
+
+export const prerender = false;
+const env = getEnv(Astro.locals);
+const user = Astro.locals.user!;
+const { id } = Astro.params;
+
+const r = await getDb(env).execute({
+  sql: `SELECT d.*, s.name spec_name, u.email user_email
+        FROM doctors d LEFT JOIN specialties s ON s.slug = d.specialty_slug
+        LEFT JOIN users u ON u.id = d.user_id WHERE d.id = ?`,
+  args: [id!],
+});
+const d = r.rows[0] as Record<string, unknown> | undefined;
+if (!d) Astro.response.status = 404;
+const S = (k: string) => (d && d[k] != null && String(d[k]).trim() ? String(d[k]) : null);
+const status = d ? (d.application_status ? String(d.application_status) : 'pending') : '';
+const pending = status === 'pending';
+const years = d && d.years_practice != null ? Number(d.years_practice) : null;
+---
+
+<PortalShell role="admin" active="doctors" title={d ? `${String(d.name)} — review` : 'Doctor — admin'}>
+  <div class="topbar">
+    <div><div class="eyebrow">Doctor application</div><h1>{d ? String(d.name) : 'Not found'}</h1></div>
+    <span class="who"><span class="ava">{initialsFrom(user.name, user.email)}</span> {user.name ?? user.email}</span>
+  </div>
+
+  {!d ? (
+    <div class="card"><div class="empty">No application with id <span class="mono">{id}</span>. <a href="/admin/doctors">← Back</a></div></div>
+  ) : (
+    <div class="assign-grid" data-doctor-id={String(d.id)}>
+      <div class="card">
+        <div class="sec-head"><h2>Profile</h2>
+          <span class:list={['chip', { ok: status === 'approved', warn: status === 'pending' }]}>{status}</span>
+        </div>
+        <div class="summary-row"><span class="lab">Name</span><span>{String(d.name)}</span></div>
+        <div class="summary-row"><span class="lab">Account</span><span>{S('user_email') ?? '—'}</span></div>
+        <div class="summary-row"><span class="lab">Specialty</span><span>{S('spec_name') ?? '—'}{S('subspecialty') ? ` · ${S('subspecialty')}` : ''}</span></div>
+        <div class="summary-row"><span class="lab">Hospital</span><span>{S('hospital') ?? '—'}{S('location') ? ` · ${S('location')}` : ''}</span></div>
+        <div class="summary-row"><span class="lab">Experience</span><span>{years != null ? `${years} years` : '—'}</span></div>
+        <div class="summary-row"><span class="lab">Bio</span><span>{S('bio') ?? '—'}</span></div>
+        <div class="summary-row"><span class="lab">Applied</span><span>{d.applied_at != null ? formatDate(Number(d.applied_at)) : '—'}</span></div>
+        {d.reviewed_at != null && <div class="summary-row"><span class="lab">Reviewed</span><span>{formatDate(Number(d.reviewed_at))}{S('review_notes') ? ` · “${S('review_notes')}”` : ''}</span></div>}
+      </div>
+
+      <div class="card">
+        <div class="needs" style="margin-bottom:16px">🔒 Admin only · verification credentials — never shown to clients or on the doctor's profile.</div>
+        <div class="summary-row"><span class="lab">License #</span><span class="mono">{S('license_number') ?? '—'}</span></div>
+        <div class="summary-row"><span class="lab">Authority</span><span>{S('license_authority') ?? '—'}</span></div>
+        <div class="summary-row"><span class="lab">Registry ID</span><span class="mono">{S('registry_id') ?? '—'}</span></div>
+        <div class="summary-row"><span class="lab">Note</span><span>{S('credential_note') ?? '—'}</span></div>
+        <div class="summary-row"><span class="lab">Documents</span><span class="faint">Upload deferred (needs R2) — text credentials only for now.</span></div>
+
+        {pending ? (
+          <div style="margin-top:18px">
+            <label class="field-label" for="rv-notes">Review note <span class="opt">(optional, included in the email)</span></label>
+            <textarea id="rv-notes" class="spec-select" data-notes rows="2" style="resize:vertical" placeholder="Optional note to the applicant…"></textarea>
+            <div style="display:flex;gap:10px;margin-top:14px">
+              <button class="btn accent" data-approve style="flex:1;justify-content:center">Approve</button>
+              <button class="btn danger-ghost" data-reject style="flex:1;justify-content:center">Reject</button>
+            </div>
+            <div class="alert-error" data-err hidden style="margin-top:12px"></div>
+            <div class="toast" data-toast></div>
+          </div>
+        ) : (
+          <div class="needs" style="margin-top:18px;background:var(--success-soft);color:var(--success)">This application is {status}.{status === 'approved' ? ' The doctor is active.' : ''}</div>
+        )}
+      </div>
+    </div>
+  )}
+</PortalShell>
+
+<script>
+  const grid = document.querySelector<HTMLElement>('[data-doctor-id]');
+  if (grid) {
+    const doctorId = grid.dataset.doctorId!;
+    const notes = () => (grid.querySelector<HTMLTextAreaElement>('[data-notes]')?.value ?? '').trim();
+    const err = grid.querySelector<HTMLElement>('[data-err]');
+    const toast = grid.querySelector<HTMLElement>('[data-toast]');
+    const review = async (action: 'approve' | 'reject', btn: HTMLButtonElement) => {
+      if (err) err.hidden = true;
+      btn.disabled = true; const label = btn.textContent; btn.textContent = action === 'approve' ? 'Approving…' : 'Rejecting…';
+      try {
+        const res = await fetch('/api/admin/doctor/review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ doctorId, action, notes: notes() }) });
+        const data = await res.json() as { ok?: boolean; error?: string; status?: string };
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Could not submit.');
+        if (toast) { toast.classList.add('show'); toast.textContent = `✓ ${data.status}.`; }
+        setTimeout(() => location.reload(), 700);
+      } catch (e) { if (err) { err.hidden = false; err.textContent = e instanceof Error ? e.message : 'Error'; } btn.disabled = false; btn.textContent = label; }
+    };
+    grid.querySelector<HTMLButtonElement>('[data-approve]')?.addEventListener('click', (e) => review('approve', e.currentTarget as HTMLButtonElement));
+    grid.querySelector<HTMLButtonElement>('[data-reject]')?.addEventListener('click', (e) => review('reject', e.currentTarget as HTMLButtonElement));
+  }
+</script>

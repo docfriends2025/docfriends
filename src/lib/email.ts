@@ -96,6 +96,36 @@ This link expires in 1 hour and can only be used once. If you didn't request thi
   };
 }
 
+export function doctorApprovedEmail(opts: { email: string; name: string; link: string }): SendOpts {
+  return {
+    to: opts.email,
+    subject: 'Your DocFriends application is approved',
+    text: `Welcome aboard, ${opts.name || 'Doctor'}.
+
+Your application has been approved — your DocFriends doctor account is now active. Sign in to see your inbox and start reviewing cases:
+
+  ${opts.link}
+
+Thank you for joining the network.
+
+— The DocFriends team`,
+  };
+}
+
+export function doctorRejectedEmail(opts: { email: string; name: string; reason: string | null }): SendOpts {
+  return {
+    to: opts.email,
+    subject: 'Update on your DocFriends application',
+    text: `Hello ${opts.name || 'there'},
+
+Thank you for your interest in joining DocFriends. After review, we're not able to approve your application at this time.${opts.reason ? `\n\nNote from our team: ${opts.reason}` : ''}
+
+If you believe this was in error or your credentials have changed, reply to this email and we'll take another look.
+
+— The DocFriends team`,
+  };
+}
+
 export function existingAccountEmail(opts: { email: string; signInLink: string; resetLink: string }): SendOpts {
   return {
     to: opts.email,

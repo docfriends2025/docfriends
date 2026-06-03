@@ -53,6 +53,16 @@ CREATE TABLE IF NOT EXISTS doctors (
   verified        INTEGER NOT NULL DEFAULT 0,
   active          INTEGER NOT NULL DEFAULT 1,
   bio             TEXT,
+  -- onboarding: a pending application is a doctors row with active=0
+  license_number     TEXT,
+  license_authority  TEXT,                  -- council/board/state/country (admin-only)
+  registry_id        TEXT,                  -- optional, e.g. NPI (admin-only)
+  credential_note    TEXT,                  -- optional free text (admin-only)
+  application_status TEXT NOT NULL DEFAULT 'pending', -- pending | approved | rejected
+  applied_at         INTEGER,
+  reviewed_by        TEXT,
+  reviewed_at        INTEGER,
+  review_notes       TEXT,
   created_at      INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_doctors_specialty ON doctors(specialty_slug);
