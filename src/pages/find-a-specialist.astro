@@ -73,16 +73,19 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
           <div class="q-head">
             <div class="eyebrow tiny" data-q-eyebrow>Get started</div>
             <h2 class="q-title" data-q-title>Pick a symptom to begin</h2>
-            <div class="q-progress" data-q-progress hidden>
-              <div class="q-progress-track"><span class="q-progress-fill" data-q-fill></span></div>
-              <span class="q-progress-label faint tiny" data-q-count>0 of 0 answered</span>
-            </div>
           </div>
+
+          <div class="prog" data-q-progress hidden>
+            <div class="prog-bar"><span class="prog-fill" data-q-fill></span></div>
+            <span class="prog-count"><b data-q-count>0</b> of <b data-q-total>0</b> answered</span>
+          </div>
+
           <div class="q-list" data-questions></div>
-          <div class="q-actions" data-q-actions hidden>
-            <button class="btn primary lg" data-to-results disabled>See likely causes →</button>
+
+          <div class="q-foot" data-q-foot hidden>
+            <span class="helper" data-q-helper></span>
+            <button class="cta" data-to-results disabled>See likely causes →</button>
           </div>
-          <p class="q-hint faint" data-q-hint hidden></p>
         </div>
 
         <!-- STAGE: results -->
@@ -140,19 +143,20 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
   .rail-step.done { color: var(--ink); } .rail-step.done .rail-circle { background: var(--ink); border-color: var(--ink); color: var(--paper); }
   .rail-step.active { color: var(--accent-deep); } .rail-step.active .rail-circle { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-  /* questions — static shell only. The question cards/options/safety card are
-     injected at runtime, so their styles live in the <style is:global> block. */
-  .q-head { margin-bottom: 18px; }
+  /* questions — static shell only. Question cards are injected at runtime, so
+     their CSS lives in the <style is:global> block below. */
+  .q-head { margin-bottom: 16px; }
   .q-title { font-family: var(--serif); font-weight: 400; font-size: clamp(22px, 3vw, 28px); margin-top: 2px; line-height: 1.1; }
-  .q-progress { margin-top: 16px; display: flex; align-items: center; gap: 12px; max-width: 660px; }
-  .q-progress-track { flex: 1; height: 6px; border-radius: 99px; background: var(--paper-2); overflow: hidden; }
-  .q-progress-fill { display: block; height: 100%; width: 0; border-radius: 99px; background: var(--accent); transition: width .25s ease; }
-  .q-progress-label { white-space: nowrap; }
-  .q-list { display: flex; flex-direction: column; gap: 14px; max-width: 660px; }
-  .q-actions { display: flex; gap: 12px; margin-top: 24px; }
-  /* Gated until every question is answered — show "not yet", not a loading spinner. */
-  .q-actions .btn[disabled] { cursor: not-allowed; }
-  .q-hint { font-size: 12.5px; margin-top: 10px; }
+  .prog { display: flex; align-items: center; gap: 14px; margin: 0 0 22px; max-width: 660px; }
+  .prog-bar { flex: 1; height: 6px; border-radius: 99px; background: var(--paper-3); overflow: hidden; }
+  .prog-fill { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .35s cubic-bezier(.4,0,.2,1); }
+  .prog-count { font-size: 12.5px; color: var(--ink-soft); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .q-list { max-width: 660px; }
+  .q-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; max-width: 660px; flex-wrap: wrap; }
+  .cta { display: inline-flex; align-items: center; gap: 8px; padding: 14px 26px; border-radius: 99px; border: none; background: var(--ink); color: var(--paper); font-family: var(--sans); font-size: 15px; font-weight: 600; cursor: pointer; transition: background .15s, opacity .15s, transform .12s; }
+  .cta:disabled { opacity: .4; cursor: not-allowed; }
+  .cta:not(:disabled):hover { background: #11192e; }
+  .cta:not(:disabled):active { transform: translateY(1px); }
 
   /* results — static shell only (inner content is injected → global below) */
   .results-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 22px; align-items: start; }
@@ -172,36 +176,40 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
 <style is:global>
   .finder .q-placeholder { font-size: 15px; line-height: 1.6; max-width: 560px; }
 
-  /* ── Questions: one card per question ── */
-  .finder .q-card { border: 1px solid var(--line-strong); border-radius: 14px; padding: 18px 20px; background: var(--paper); transition: border-color .15s, box-shadow .15s; }
-  .finder .q-card[data-answered="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
-  .finder .q-card-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
-  .finder .q-num { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--paper-2); color: var(--ink-soft); display: grid; place-items: center; font-size: 12px; font-weight: 600; font-family: var(--mono); }
-  .finder .q-card[data-answered="true"] .q-num { background: var(--ink); color: var(--paper); }
-  .finder .q-head-text { flex: 1; }
-  .finder .q-text { font-size: 16px; font-weight: 600; line-height: 1.4; flex: 1; padding-top: 3px; }
-  .finder .q-head-text .q-text { padding-top: 0; }
-  .finder .q-check { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--success); color: #fff; display: grid; place-items: center; opacity: 0; transform: scale(.6); transition: opacity .15s, transform .15s; }
-  .finder .q-card[data-answered="true"] .q-check { opacity: 1; transform: scale(1); }
+  /* progress / footer text use injected <b> children → keep global */
+  .finder .prog-count b { color: var(--ink); font-weight: 600; }
+  .finder .helper { font-size: 13px; color: var(--ink-soft); }
+  .finder .helper b { color: var(--ink); font-weight: 600; }
+  .finder .helper.ready { color: var(--success); }
 
-  .finder .q-opts { display: flex; flex-wrap: wrap; gap: 10px; }
-  .finder .q-opt { flex: 1 1 auto; min-width: 150px; display: flex; align-items: center; gap: 11px; text-align: left; padding: 13px 16px; border: 1.5px solid var(--line-strong); border-radius: 11px; background: var(--paper); color: var(--ink); font-size: 14.5px; font-weight: 500; cursor: pointer; transition: border-color .12s, background .12s, color .12s; }
-  .finder .q-opt::before { content: ''; flex: none; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--line-strong); background-repeat: no-repeat; background-position: center; transition: all .12s; }
-  .finder .q-opt:hover { border-color: var(--ink); }
-  .finder .q-opt.sel { background: var(--ink); border-color: var(--ink); color: var(--paper); }
-  .finder .q-opt.sel::before { background-color: #fff; border-color: #fff; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231a2238' stroke-width='3.5'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E"); }
+  /* ── Questions: one card per question (ported from the redesign) ── */
+  .finder .q { border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); padding: 22px 22px 24px; margin-bottom: 14px; transition: border-color .2s, box-shadow .2s; }
+  .finder .q.answered { border-color: var(--line-strong); }
+  .finder .q.current { box-shadow: 0 16px 40px -28px rgba(26,34,56,.28); }
+  .finder .q-top { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+  .finder .q-n { font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: .05em; padding-top: 2px; flex-shrink: 0; }
+  .finder .q-text { font-size: 16.5px; font-weight: 600; line-height: 1.35; }
+  .finder .q-tick { margin-left: auto; width: 20px; height: 20px; border-radius: 50%; background: var(--success-soft); color: var(--success); display: none; align-items: center; justify-content: center; flex-shrink: 0; }
+  .finder .q.answered .q-tick { display: inline-flex; }
+
+  .finder .opts { display: flex; flex-wrap: wrap; gap: 10px; }
+  .finder .opt { flex: 1 1 auto; min-width: 120px; min-height: 52px; display: flex; align-items: center; justify-content: center; gap: 9px; text-align: center; padding: 12px 18px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--paper); font-size: 14.5px; font-weight: 500; color: var(--ink-soft); cursor: pointer; transition: all .15s; }
+  .finder .opt:hover { border-color: var(--ink); color: var(--ink); }
+  .finder .opt .mark { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--line-strong); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; transition: all .15s; }
+  .finder .opt .mark svg { opacity: 0; transform: scale(.6); transition: all .15s; }
+  .finder .opt.sel { background: var(--ink); border-color: var(--ink); color: var(--paper); font-weight: 600; }
+  .finder .opt.sel .mark { background: var(--accent); border-color: var(--accent); }
+  .finder .opt.sel .mark svg { opacity: 1; transform: scale(1); }
 
   /* ── Safety / red-flag question, set apart ── */
-  .finder .q-card--safety { border-left: 3px solid var(--warn); background: rgba(181,133,42,.05); }
-  .finder .q-shield { flex: none; width: 28px; height: 28px; border-radius: 8px; background: var(--warn); color: #fff; display: grid; place-items: center; }
-  .finder .q-safety-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--warn); margin-bottom: 4px; }
-  .finder .q-card--safety.q-card--alert { border-left-color: var(--danger); background: rgba(169,63,63,.06); }
-  .finder .q-card--alert .q-shield { background: var(--danger); }
-  .finder .q-card--alert .q-safety-label { color: var(--danger); }
-  .finder .q-opt--danger.sel { background: var(--danger); border-color: var(--danger); }
-  .finder .q-opt--danger.sel::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a93f3f' stroke-width='3.5'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E"); }
-  .finder .q-urgent { margin-top: 14px; padding: 14px 16px; border-radius: 10px; background: var(--paper); border: 1px solid rgba(169,63,63,.25); color: var(--ink-soft); font-size: 13.5px; line-height: 1.55; }
-  .finder .q-urgent-title { font-weight: 700; color: var(--danger); margin-bottom: 4px; }
+  .finder .q.safety { border-left: 3px solid var(--warn); background: linear-gradient(90deg, var(--warn-soft), transparent 40%); }
+  .finder .safety-flag { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--warn); margin-bottom: 10px; }
+  .finder .q.safety .opt.sel[data-flag="yes"] { background: var(--danger); border-color: var(--danger); }
+  .finder .q.safety .opt.sel[data-flag="yes"] .mark { background: #fff; border-color: #fff; }
+  .finder .q.safety .opt.sel[data-flag="yes"] .mark svg { stroke: var(--danger); }
+  .finder .safety-note { display: none; margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: rgba(169,63,63,.08); color: var(--danger); font-size: 13px; line-height: 1.5; gap: 9px; }
+  .finder .safety-note.show { display: flex; }
+  .finder .safety-note svg { flex-shrink: 0; margin-top: 1px; }
 
   /* ── Results step ── */
   .finder .causes-title { font-family: var(--serif); font-size: 18px; line-height: 1.1; margin-bottom: 14px; }
@@ -223,11 +231,11 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
   .finder .alt-card { display: flex; justify-content: space-between; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; background: var(--paper); }
   .finder .alt-name { font-size: 14px; font-weight: 600; }
   .finder .alt-when { font-size: 12px; color: var(--ink-soft); margin-top: 1px; line-height: 1.4; }
-  .finder .safety { margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: rgba(169,63,63,.08); color: var(--danger); font-size: 13px; line-height: 1.55; display: flex; gap: 10px; }
-  .finder .safety strong { font-weight: 700; }
+  .finder .res-safety { margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: rgba(169,63,63,.08); color: var(--danger); font-size: 13px; line-height: 1.55; display: flex; gap: 10px; }
+  .finder .res-safety strong { font-weight: 700; }
   .finder .urgent-banner { margin-bottom: 18px; padding: 14px 16px; border-radius: 12px; background: var(--danger); color: #fff; font-size: 13.5px; line-height: 1.5; }
 
-  @media (max-width: 560px) { .finder .q-opt { flex-basis: 100%; } }
+  @media (max-width: 560px) { .finder .opt { flex: 1 1 100%; } }
 </style>
 
 <script>
@@ -244,11 +252,12 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
   const toR = root.querySelector<HTMLButtonElement>('[data-to-results]')!;
   const qEyebrow = root.querySelector<HTMLElement>('[data-q-eyebrow]')!;
   const qTitle = root.querySelector<HTMLElement>('[data-q-title]')!;
-  const qActions = root.querySelector<HTMLElement>('[data-q-actions]')!;
-  const qHint = root.querySelector<HTMLElement>('[data-q-hint]')!;
   const qProgress = root.querySelector<HTMLElement>('[data-q-progress]')!;
   const qFill = root.querySelector<HTMLElement>('[data-q-fill]')!;
   const qCount = root.querySelector<HTMLElement>('[data-q-count]')!;
+  const qTotal = root.querySelector<HTMLElement>('[data-q-total]')!;
+  const qFoot = root.querySelector<HTMLElement>('[data-q-foot]')!;
+  const qHelper = root.querySelector<HTMLElement>('[data-q-helper]')!;
 
   let answers: Record<string, string> = {};
 
@@ -297,20 +306,21 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
     emptyMsg.hidden = any;
   });
 
-  // questions
+  // ── questions ──
+  const TICK = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>`;
+  const MARK = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M20 6 9 17l-5-5"/></svg>`;
+  const SHIELD = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>`;
+  const INFO = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>`;
+
   function showPlaceholder() {
     qEyebrow.textContent = 'Get started';
     qTitle.textContent = 'Pick a symptom to begin';
-    qActions.hidden = true;
-    qHint.hidden = true;
     qProgress.hidden = true;
+    qFoot.hidden = true;
     toR.disabled = true;
     root.querySelector<HTMLElement>('[data-questions]')!.innerHTML =
       `<p class="q-placeholder muted">Choose one or more symptoms from the list on the left. We'll ask a few quick questions, then point you to the right specialist.</p>`;
   }
-
-  const CHECK_SVG = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>`;
-  const SHIELD_SVG = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 5 6v5c0 4.2 2.9 7.4 7 8 4.1-.6 7-3.8 7-8V6l-7-3Z"/></svg>`;
 
   function renderQuestions() {
     const sel = selectedNames();
@@ -320,70 +330,69 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
     qEyebrow.textContent = `About your ${primary.toLowerCase()}`;
     qTitle.textContent = 'A few quick questions';
     const urgentNote = SYMPTOMS[primary]?.redFlag
-      ?? "If you're experiencing this right now, please don't wait for an opinion — contact your local emergency number or go to the nearest emergency department. Your case will be here when you're safe.";
+      ?? "That combination can be an emergency. We'll flag this case as urgent — and you may be advised to seek care now rather than wait for an opinion.";
 
     const wrap = root.querySelector<HTMLElement>('[data-questions]')!;
     wrap.innerHTML = qs.map((q, i) => {
       const isSafety = q.options.some((o) => o.redFlag);
-      const opts = q.options.map((o) =>
-        `<button type="button" class="q-opt${o.redFlag ? ' q-opt--danger' : ''}" data-opt="${encodeURIComponent(o.label)}"${o.redFlag ? ' data-redflag' : ''}>${o.label}</button>`
-      ).join('');
+      const opts = q.options.map((o) => {
+        const flag = o.redFlag ? ' data-flag="yes"' : (isSafety ? ' data-flag="no"' : '');
+        return `<button type="button" class="opt" data-opt="${encodeURIComponent(o.label)}"${flag}><span class="mark">${MARK}</span>${o.label}</button>`;
+      }).join('');
+      const head = `<div class="q-top"><span class="q-n">Q${i + 1}</span><span class="q-text">${q.q}</span><span class="q-tick">${TICK}</span></div>`;
       if (isSafety) {
-        return `<div class="q-card q-card--safety" data-q="${q.id}" data-answered="false" data-safety>
-          <div class="q-card-head">
-            <span class="q-shield">${SHIELD_SVG}</span>
-            <div class="q-head-text"><span class="q-safety-label">Safety check</span><div class="q-text">${q.q}</div></div>
-            <span class="q-check" aria-hidden="true">${CHECK_SVG}</span>
-          </div>
-          <div class="q-opts">${opts}</div>
-          <div class="q-urgent" data-q-urgent hidden>
-            <div class="q-urgent-title">If this is happening now, don't wait.</div>
-            <p>${urgentNote}</p>
-          </div>
+        return `<div class="q safety" data-q="${q.id}" data-safety>
+          <div class="safety-flag">${SHIELD} Safety check</div>
+          ${head}
+          <div class="opts">${opts}</div>
+          <div class="safety-note" data-q-note>${INFO}<span>${urgentNote}</span></div>
         </div>`;
       }
-      return `<div class="q-card" data-q="${q.id}" data-answered="false">
-        <div class="q-card-head">
-          <span class="q-num">${i + 1}</span>
-          <div class="q-text">${q.q}</div>
-          <span class="q-check" aria-hidden="true">${CHECK_SVG}</span>
-        </div>
-        <div class="q-opts">${opts}</div>
-      </div>`;
+      return `<div class="q" data-q="${q.id}">${head}<div class="opts">${opts}</div></div>`;
     }).join('');
 
+    const cards = Array.from(wrap.querySelectorAll<HTMLElement>('[data-q]'));
     const updateProgress = () => {
-      const answered = Object.keys(answers).length;
+      const answered = cards.filter((c) => c.classList.contains('answered')).length;
       const total = qs.length;
+      qCount.textContent = String(answered);
+      qTotal.textContent = String(total);
       qFill.style.width = (total ? Math.round((answered / total) * 100) : 0) + '%';
-      qCount.textContent = `${answered} of ${total} answered`;
+      cards.forEach((c) => c.classList.remove('current'));
+      const next = cards.find((c) => !c.classList.contains('answered'));
+      if (next) next.classList.add('current');
       const remaining = total - answered;
       toR.disabled = remaining > 0;
-      qHint.hidden = remaining <= 0;
-      qHint.textContent = remaining > 0 ? `Answer ${remaining} more question${remaining > 1 ? 's' : ''} to continue.` : '';
+      if (remaining === 0) {
+        qHelper.innerHTML = '✓ All set — here are your likely causes';
+        qHelper.classList.add('ready');
+      } else {
+        qHelper.innerHTML = `Answer <b>${remaining}</b> more question${remaining > 1 ? 's' : ''} to continue`;
+        qHelper.classList.remove('ready');
+      }
     };
 
-    wrap.querySelectorAll<HTMLButtonElement>('.q-opt').forEach((btn) => btn.addEventListener('click', () => {
-      const card = btn.closest<HTMLElement>('[data-q]')!;
-      card.querySelectorAll('.q-opt').forEach((b) => b.classList.remove('sel'));
-      btn.classList.add('sel');
-      card.dataset.answered = 'true';
-      answers[card.dataset.q!] = decodeURIComponent(btn.dataset.opt!);
-      if (card.hasAttribute('data-safety')) {
-        const danger = btn.hasAttribute('data-redflag');
-        card.classList.toggle('q-card--alert', danger);
-        const note = card.querySelector<HTMLElement>('[data-q-urgent]');
-        if (note) note.hidden = !danger;
-      }
-      updateProgress();
-    }));
+    cards.forEach((card) => {
+      const opts = Array.from(card.querySelectorAll<HTMLButtonElement>('.opt'));
+      opts.forEach((opt) => opt.addEventListener('click', () => {
+        opts.forEach((o) => o.classList.remove('sel'));
+        opt.classList.add('sel');
+        card.classList.add('answered');
+        answers[card.dataset.q!] = decodeURIComponent(opt.dataset.opt!);
+        if (card.hasAttribute('data-safety')) {
+          const note = card.querySelector<HTMLElement>('[data-q-note]');
+          if (note) note.classList.toggle('show', opt.dataset.flag === 'yes');
+        }
+        updateProgress();
+      }));
+    });
 
     qProgress.hidden = false;
-    qActions.hidden = false;
+    qFoot.hidden = false;
     updateProgress();
   }
 
-  // results
+  // ── results ──
   function renderResults() {
     const sel = selectedNames();
     const rec = recommend(sel, answers);
@@ -412,8 +421,8 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
       const p = new URLSearchParams();
       if (symptomSeed) p.set('symptom', symptomSeed);
       if (slug) p.set('specialty', slug);
-      const qs = p.toString();
-      return qs ? `/?${qs}#start` : '/#start';
+      const qstr = p.toString();
+      return qstr ? `/?${qstr}#start` : '/#start';
     };
     const ctaHref = intakeHref(sp.specialtySlug);
     root.querySelector<HTMLElement>('[data-reco]')!.innerHTML = `
@@ -431,7 +440,7 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
       </div>
       ${rec.alternatives.length ? `<div class="alts"><div class="eyebrow tiny" style="margin-bottom:10px">If symptoms change, also consider</div>
         ${rec.alternatives.map((a) => `<div class="alt-card"><div><div class="alt-name">${a.specialist.label}</div><div class="alt-when">${a.when}</div></div><a href="${intakeHref(a.specialist.specialtySlug)}" class="btn ghost sm">View →</a></div>`).join('')}</div>` : ''}
-      ${rec.redFlag && !rec.urgent ? `<div class="safety"><strong>!</strong><div>${rec.redFlag}</div></div>` : ''}`;
+      ${rec.redFlag && !rec.urgent ? `<div class="res-safety"><strong>!</strong><div>${rec.redFlag}</div></div>` : ''}`;
   }
 
   // wiring
