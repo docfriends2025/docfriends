@@ -48,6 +48,22 @@ function renderHtml(text: string): string {
 </body></html>`;
 }
 
+export function opinionsReadyEmail(opts: { email: string; link: string; ref: string }): SendOpts {
+  return {
+    to: opts.email,
+    subject: 'Your second opinions are ready — DocFriends',
+    text: `Good news — your panel has finished reviewing your case${opts.ref ? ` (#${opts.ref})` : ''}.
+
+Your specialists' written opinions are ready to read now:
+
+  ${opts.link}
+
+You'll see each doctor's verdict, their answers to your questions, and what they'd do next. As always, this is guidance to talk through with your own doctor — not a prescription.
+
+— The DocFriends team`,
+  };
+}
+
 export function magicLinkEmail(opts: { email: string; link: string }): SendOpts {
   return {
     to: opts.email,
