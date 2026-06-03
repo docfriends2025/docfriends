@@ -59,36 +59,40 @@ function rowToUser(row: Record<string, unknown>): User {
 }
 
 // ─── magic links ─────────────────────────────────────────────────────
+export type TokenPurpose = 'login' | 'verify' | 'reset';
+
 export async function createMagicLink(
   env: Env,
   email: string,
-  opts: { nextUrl?: string; clientIp?: string | null; userAgent?: string | null } = {}
+  opts: { nextUrl?: string; clientIp?: string | null; userAgent?: string | null; purpose?: TokenPurpose; ttlMs?: number } = {}
 ): Promise<{ token: string; email: string } | null> {
   const cleanEmail = safeEmail(email);
   if (!cleanEmail) return null;
   const token = randomToken();
   const db = getDb(env);
   await db.execute({
-    sql: `INSERT INTO auth_tokens (token_hash, email, next_url, expires_at, used_at, client_ip, user_agent, created_at)
-          VALUES (?, ?, ?, ?, NULL, ?, ?, ?)`,
-    args: [await sha256(token), cleanEmail, opts.nextUrl ?? null, now() + MAGIC_TTL_MS, opts.clientIp ?? null, opts.userAgent ?? null, now()],
+    sql: `INSERT INTO auth_tokens (token_hash, email, next_url, expires_at, used_at, client_ip, user_agent, created_at, purpose)
+          VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?)`,
+    args: [await sha256(token), cleanEmail, opts.nextUrl ?? null, now() + (opts.ttlMs ?? MAGIC_TTL_MS), opts.clientIp ?? null, opts.userAgent ?? null, now(), opts.purpose ?? 'login'],
   });
   return { token, email: cleanEmail };
 }
 
 export async function consumeMagicLink(
   env: Env,
-  token: string
+  token: string,
+  expectedPurposes: TokenPurpose[] = ['login', 'verify']
 ): Promise<{ ok: true; email: string; nextUrl: string | null } | { ok: false; reason: string }> {
   if (!token || token.length < 16) return { ok: false, reason: 'Invalid link.' };
   const db = getDb(env);
   const tokenHash = await sha256(token);
   const res = await db.execute({
-    sql: 'SELECT email, next_url, expires_at, used_at FROM auth_tokens WHERE token_hash = ?',
+    sql: 'SELECT email, next_url, expires_at, used_at, purpose FROM auth_tokens WHERE token_hash = ?',
     args: [tokenHash],
   });
   const row = res.rows[0];
   if (!row) return { ok: false, reason: 'This link is invalid or has been replaced.' };
+  if (!expectedPurposes.includes((row.purpose ? String(row.purpose) : 'login') as TokenPurpose)) return { ok: false, reason: 'This link is not valid for this action.' };
   if (row.used_at != null) return { ok: false, reason: 'This link has already been used.' };
   if (Number(row.expires_at) < now()) return { ok: false, reason: 'This link has expired. Request a new one.' };
   await db.execute({ sql: 'UPDATE auth_tokens SET used_at = ? WHERE token_hash = ?', args: [now(), tokenHash] });
@@ -118,6 +122,52 @@ export async function getOrCreateUser(env: Env, email: string): Promise<User> {
     args: [id, email, ts, ts, ts],
   });
   return { id, email, name: null, phone: null, role: 'client', emailVerifiedAt: ts, createdAt: ts, lastSeenAt: ts };
+}
+
+export interface UserWithHash extends User { passwordHash: string | null; }
+
+/** Look up a user by email WITHOUT creating one. Includes the password hash. */
+export async function getUserByEmail(env: Env, email: string): Promise<UserWithHash | null> {
+  const e = safeEmail(email);
+  if (!e) return null;
+  const r = await getDb(env).execute({
+    sql: 'SELECT id, email, name, phone, role, email_verified_at, created_at, last_seen_at, password_hash FROM users WHERE email = ?',
+    args: [e],
+  });
+  const row = r.rows[0];
+  if (!row) return null;
+  return { ...rowToUser(row as Record<string, unknown>), passwordHash: row.password_hash ? String(row.password_hash) : null };
+}
+
+/** Create a client account with a password (email unverified). Returns null if the email exists. */
+export async function createPasswordUser(env: Env, opts: { email: string; name: string | null; passwordHash: string }): Promise<User | null> {
+  const e = safeEmail(opts.email);
+  if (!e) return null;
+  const id = ulid();
+  const ts = now();
+  try {
+    await getDb(env).execute({
+      sql: `INSERT INTO users (id, email, name, phone, role, email_verified_at, password_hash, created_at, last_seen_at)
+            VALUES (?, ?, ?, NULL, 'client', NULL, ?, ?, ?)`,
+      args: [id, e, opts.name ?? null, opts.passwordHash, ts, ts],
+    });
+  } catch {
+    return null; // UNIQUE(email) → already registered
+  }
+  return { id, email: e, name: opts.name ?? null, phone: null, role: 'client', emailVerifiedAt: null, createdAt: ts, lastSeenAt: ts };
+}
+
+export async function setUserPassword(env: Env, userId: string, passwordHash: string): Promise<void> {
+  await getDb(env).execute({ sql: 'UPDATE users SET password_hash = ? WHERE id = ?', args: [passwordHash, userId] });
+}
+
+export async function markEmailVerified(env: Env, userId: string): Promise<void> {
+  await getDb(env).execute({ sql: 'UPDATE users SET email_verified_at = COALESCE(email_verified_at, ?) WHERE id = ?', args: [now(), userId] });
+}
+
+/** Kill every session for a user (used after a password reset). */
+export async function destroyUserSessions(env: Env, userId: string): Promise<void> {
+  await getDb(env).execute({ sql: 'DELETE FROM sessions WHERE user_id = ?', args: [userId] });
 }
 
 // ─── sessions ────────────────────────────────────────────────────────

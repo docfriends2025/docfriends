@@ -4,7 +4,6 @@ import { HOME_FOR_ROLE } from '~/lib/site';
 
 export const prerender = false;
 
-// Already signed in → straight to their portal.
 if (Astro.locals.user) {
   return Astro.redirect(HOME_FOR_ROLE[Astro.locals.user.role] ?? '/dashboard');
 }
@@ -12,11 +11,10 @@ if (Astro.locals.user) {
 const errorRaw = Astro.url.searchParams.get('error');
 const nextRaw = Astro.url.searchParams.get('next');
 const next = (nextRaw && nextRaw.startsWith('/') && !nextRaw.startsWith('//')) ? nextRaw : '';
-
 const errorMessages: Record<string, string> = {
-  'missing-token':  'That link was missing its token. Request a new one below.',
+  'missing-token': 'That link was missing its token. Sign in again below.',
   'not-configured': 'Sign-in is not configured on this site yet.',
-  'session-failed': 'Could not start your session. Please request a new link.',
+  'session-failed': 'Could not start your session. Please try again.',
 };
 const error = errorRaw ? (errorMessages[errorRaw] ?? errorRaw) : null;
 ---
@@ -25,50 +23,57 @@ const error = errorRaw ? (errorMessages[errorRaw] ?? errorRaw) : null;
   <section class="signin">
     <div class="container-narrow">
       <header class="si-head">
-        <div class="eyebrow">One quick step</div>
-        <h1 class="h-display si-title">One tap. <em>Or one email.</em></h1>
-        <p class="si-lead muted">We hold your case in a secure account so only you and your assigned doctors can see it. No passwords, ever.</p>
+        <div class="eyebrow">Welcome back</div>
+        <h1 class="h-display si-title">Sign in</h1>
+        <p class="si-lead muted">Access your cases and your panel's opinions.</p>
       </header>
 
       <div class="si-card" data-card-default>
-        {error && <div class="alert error" style="margin-bottom:20px">{error}</div>}
+        {error && <div class="alert error" style="margin-bottom:18px">{error}</div>}
+        <div class="alert dev" data-info hidden style="margin-bottom:18px"></div>
 
-        <!-- Social paths (design-complete; email is the live path today) -->
         <div class="social-row">
-          <button type="button" class="social-btn" data-soon="Google sign-in is coming soon — use your email below for now.">
+          <button type="button" class="social-btn" data-soon="Google sign-in is coming soon — use your email + password below.">
             <span class="s-ico">G</span> Continue with Google
           </button>
-          <button type="button" class="social-btn" data-soon="Apple sign-in is coming soon — use your email below for now.">
+          <button type="button" class="social-btn" data-soon="Apple sign-in is coming soon — use your email + password below.">
             <span class="s-ico"></span> Continue with Apple
           </button>
         </div>
         <div class="or"><span>or sign in with email</span></div>
 
-        <form data-signin-form>
-          <label for="si-email" class="field-label">Your email</label>
+        <form data-login-form>
+          <label for="si-email" class="field-label">Email</label>
           <input id="si-email" name="email" type="email" class="input-line" placeholder="you@email.com" autocomplete="email" required />
+          <div class="pw-row">
+            <label for="si-pw" class="field-label">Password</label>
+            <a href="/forgot-password" class="faint tiny">Forgot password?</a>
+          </div>
+          <input id="si-pw" name="password" type="password" class="input-line" placeholder="Your password" autocomplete="current-password" required />
           <input type="hidden" name="next" value={next} />
           <button type="submit" class="btn primary lg block" style="margin-top:22px" data-submit>
-            <span class="l-default">Send my sign-in link →</span>
-            <span class="l-loading" hidden>Sending…</span>
+            <span class="l-default">Sign in →</span>
+            <span class="l-loading" hidden>Signing in…</span>
           </button>
-          <div class="alert error" data-form-error hidden style="margin-top:14px"></div>
+          <div class="alert error" data-login-error hidden style="margin-top:14px"></div>
         </form>
 
-        <div class="trust"><span class="check">✓</span><span class="faint tiny">No passwords · No spam · Delete account anytime</span></div>
-        <p class="demo faint tiny">Demo accounts: <code>maya@example.com</code> (client) · <code>mehta@example.com</code> (doctor) · <code>sarah@example.com</code> (admin)</p>
+        <div class="or"><span>or</span></div>
+        <button type="button" class="btn ghost block" data-magic>Email me a one-time sign-in link</button>
+
+        <p class="newhere muted tiny">New to DocFriends? <a href={next ? `/sign-up?next=${encodeURIComponent(next)}` : '/sign-up'}>Create an account</a></p>
+        <div class="trust"><span class="check">✓</span><span class="faint tiny">Encrypted · only you and your assigned doctors see your case</span></div>
       </div>
 
-      <!-- Sent state -->
       <div class="si-card" data-card-sent hidden>
         <div class="sent-ico">✉</div>
         <h2 class="h-display sent-h">Check your email.</h2>
-        <p class="muted">We sent a sign-in link to <strong data-sent-email></strong>. It works once, expires in 15 minutes, and lands you right where you were going.</p>
+        <p class="muted">We sent a one-time sign-in link to <strong data-sent-email></strong>. It works once, expires in 15 minutes, and verifies your email too.</p>
         <div data-dev-fallback hidden style="margin-top:18px">
-          <div class="alert dev"><strong>DEV MODE</strong> — no email provider configured. Click below to sign in directly. Set <code>RESEND_API_KEY</code> to send real email.</div>
+          <div class="alert dev"><strong>DEV MODE</strong> — no email provider configured. Click below to sign in directly.</div>
           <a href="#" class="btn primary lg block" data-dev-link style="margin-top:12px">Click to sign in →</a>
         </div>
-        <button type="button" class="btn ghost block" data-back style="margin-top:16px">← Use a different email</button>
+        <button type="button" class="btn ghost block" data-back style="margin-top:16px">← Back to sign in</button>
       </div>
     </div>
   </section>
@@ -87,61 +92,70 @@ const error = errorRaw ? (errorMessages[errorRaw] ?? errorRaw) : null;
   .s-ico { width: 20px; height: 20px; display: grid; place-items: center; font-weight: 700; font-family: var(--serif); }
   .or { display: flex; align-items: center; gap: 14px; margin: 20px 0; color: var(--ink-light); font-size: 12px; }
   .or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
-  .trust { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .pw-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 16px; }
+  .pw-row .field-label { margin-top: 0; }
+  .newhere { text-align: center; margin-top: 18px; }
+  .trust { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
   .trust .check { color: var(--success); font-weight: 700; }
-  .demo { margin-top: 14px; line-height: 1.7; }
-  .demo code { background: var(--paper-2); padding: 1px 5px; border-radius: 4px; font-family: var(--mono); font-size: 11px; }
   .sent-ico { font-family: var(--serif); font-size: 46px; color: var(--accent); line-height: 1; margin-bottom: 14px; }
   .sent-h { font-size: 28px; margin-bottom: 10px; }
   .alert.dev code { background: rgba(0,0,0,.08); padding: 1px 5px; border-radius: 3px; }
 </style>
 
 <script>
-  const form = document.querySelector<HTMLFormElement>('[data-signin-form]');
-  const cardDefault = document.querySelector<HTMLDivElement>('[data-card-default]');
-  const cardSent = document.querySelector<HTMLDivElement>('[data-card-sent]');
-  const sentEmail = document.querySelector<HTMLElement>('[data-sent-email]');
-  const devFallback = document.querySelector<HTMLDivElement>('[data-dev-fallback]');
-  const devLink = document.querySelector<HTMLAnchorElement>('[data-dev-link]');
-  const backBtn = document.querySelector<HTMLButtonElement>('[data-back]');
-  const submit = form?.querySelector<HTMLButtonElement>('[data-submit]');
-  const errorEl = form?.querySelector<HTMLDivElement>('[data-form-error]');
-  const lDefault = submit?.querySelector('.l-default') as HTMLElement | null;
-  const lLoading = submit?.querySelector('.l-loading') as HTMLElement | null;
+  const root = document.querySelector('.signin')!;
+  const cardDefault = root.querySelector<HTMLElement>('[data-card-default]')!;
+  const cardSent = root.querySelector<HTMLElement>('[data-card-sent]')!;
+  const info = root.querySelector<HTMLElement>('[data-info]')!;
+  const loginForm = root.querySelector<HTMLFormElement>('[data-login-form]')!;
+  const emailInput = loginForm.querySelector<HTMLInputElement>('#si-email')!;
+  const loginErr = loginForm.querySelector<HTMLElement>('[data-login-error]')!;
+  const submit = loginForm.querySelector<HTMLButtonElement>('[data-submit]')!;
+  const lDefault = submit.querySelector<HTMLElement>('.l-default')!;
+  const lLoading = submit.querySelector<HTMLElement>('.l-loading')!;
+  const nextVal = () => String(new FormData(loginForm).get('next') || '');
 
-  document.querySelectorAll<HTMLButtonElement>('[data-soon]').forEach((b) =>
-    b.addEventListener('click', () => alert(b.dataset.soon)));
+  root.querySelectorAll<HTMLButtonElement>('[data-soon]').forEach((b) => b.addEventListener('click', () => alert(b.dataset.soon)));
 
-  form?.addEventListener('submit', async (e) => {
+  loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!submit) return;
-    if (errorEl) errorEl.hidden = true;
-    submit.disabled = true;
-    if (lDefault) lDefault.hidden = true;
-    if (lLoading) lLoading.hidden = false;
-    const fd = new FormData(form);
+    loginErr.hidden = true; info.hidden = true;
+    submit.disabled = true; lDefault.hidden = true; lLoading.hidden = false;
+    const fd = new FormData(loginForm);
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: String(fd.get('email') || '').trim(), password: String(fd.get('password') || ''), next: nextVal() }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string; redirect?: string; unverified?: boolean };
+      if (res.ok && data.ok && data.redirect) { window.location.href = data.redirect; return; }
+      if (data.unverified) {
+        info.hidden = false;
+        info.innerHTML = 'Please verify your email first. Use <b>“Email me a one-time sign-in link”</b> below — opening it signs you in and verifies your email.';
+      } else {
+        loginErr.hidden = false; loginErr.textContent = data.error || 'Could not sign in.';
+      }
+    } catch { loginErr.hidden = false; loginErr.textContent = 'Network error.'; }
+    finally { submit.disabled = false; lDefault.hidden = false; lLoading.hidden = true; }
+  });
+
+  // Secondary: magic-link fallback (reuses the existing email-token flow).
+  root.querySelector<HTMLButtonElement>('[data-magic]')!.addEventListener('click', async () => {
+    const email = emailInput.value.trim();
+    if (!email) { emailInput.focus(); loginErr.hidden = false; loginErr.textContent = 'Enter your email first, then request a link.'; return; }
+    loginErr.hidden = true;
     try {
       const res = await fetch('/api/auth/request', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: String(fd.get('email') || '').trim(), next: String(fd.get('next') || '') }),
+        body: JSON.stringify({ email, next: nextVal() }),
       });
       const data = await res.json() as { ok?: boolean; error?: string; email?: string; devLink?: string };
-      if (!res.ok || !data.ok) throw new Error(data.error || 'Something went wrong.');
-      if (sentEmail) sentEmail.textContent = data.email ?? '';
-      if (cardDefault) cardDefault.hidden = true;
-      if (cardSent) cardSent.hidden = false;
-      if (data.devLink && devFallback && devLink) { devFallback.hidden = false; devLink.href = data.devLink; }
-    } catch (err) {
-      if (errorEl) { errorEl.hidden = false; errorEl.textContent = err instanceof Error ? err.message : 'Network error.'; }
-    } finally {
-      submit.disabled = false;
-      if (lDefault) lDefault.hidden = false;
-      if (lLoading) lLoading.hidden = true;
-    }
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Could not send a link.');
+      root.querySelector<HTMLElement>('[data-sent-email]')!.textContent = data.email ?? email;
+      cardDefault.hidden = true; cardSent.hidden = false;
+      if (data.devLink) { const df = root.querySelector<HTMLElement>('[data-dev-fallback]')!; const dl = root.querySelector<HTMLAnchorElement>('[data-dev-link]')!; df.hidden = false; dl.href = data.devLink; }
+    } catch (err) { loginErr.hidden = false; loginErr.textContent = err instanceof Error ? err.message : 'Network error.'; }
   });
-  backBtn?.addEventListener('click', () => {
-    if (cardSent) cardSent.hidden = true;
-    if (cardDefault) cardDefault.hidden = false;
-    if (devFallback) devFallback.hidden = true;
-  });
+
+  root.querySelector<HTMLButtonElement>('[data-back]')!.addEventListener('click', () => { cardSent.hidden = true; cardDefault.hidden = false; });
 </script>

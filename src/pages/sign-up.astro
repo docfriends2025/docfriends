@@ -1,0 +1,99 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { HOME_FOR_ROLE } from '~/lib/site';
+
+export const prerender = false;
+
+if (Astro.locals.user) {
+  return Astro.redirect(HOME_FOR_ROLE[Astro.locals.user.role] ?? '/dashboard');
+}
+const nextRaw = Astro.url.searchParams.get('next');
+const next = (nextRaw && nextRaw.startsWith('/') && !nextRaw.startsWith('//')) ? nextRaw : '';
+---
+
+<BaseLayout title="Create your account — DocFriends" description="Create a DocFriends account to start a case and read your opinions." activeNav="/sign-in">
+  <section class="signup">
+    <div class="container-narrow">
+      <header class="su-head">
+        <div class="eyebrow">Create your account</div>
+        <h1 class="h-display su-title">Join DocFriends</h1>
+        <p class="su-lead muted">One account holds your case and your panel's written opinions — securely.</p>
+      </header>
+
+      <div class="si-card" data-card-default>
+        <form data-signup-form>
+          <label for="su-name" class="field-label">Your name <span class="opt">(optional)</span></label>
+          <input id="su-name" name="name" type="text" class="input-line" placeholder="Jane Okafor" autocomplete="name" maxlength="120" />
+          <label for="su-email" class="field-label" style="margin-top:16px">Email</label>
+          <input id="su-email" name="email" type="email" class="input-line" placeholder="you@email.com" autocomplete="email" required />
+          <label for="su-pw" class="field-label" style="margin-top:16px">Password <span class="opt">· at least 8 characters</span></label>
+          <input id="su-pw" name="password" type="password" class="input-line" placeholder="Create a password" autocomplete="new-password" minlength="8" required />
+          <input type="hidden" name="next" value={next} />
+          <button type="submit" class="btn primary lg block" style="margin-top:22px" data-submit>
+            <span class="l-default">Create account →</span>
+            <span class="l-loading" hidden>Creating…</span>
+          </button>
+          <div class="alert error" data-form-error hidden style="margin-top:14px"></div>
+        </form>
+        <p class="haveacct muted tiny">Already have an account? <a href={next ? `/sign-in?next=${encodeURIComponent(next)}` : '/sign-in'}>Sign in</a></p>
+        <div class="trust"><span class="check">✓</span><span class="faint tiny">No spam · Delete your account anytime</span></div>
+      </div>
+
+      <div class="si-card" data-card-sent hidden>
+        <div class="sent-ico">✉</div>
+        <h2 class="h-display sent-h">Confirm your email.</h2>
+        <p class="muted">If that email is new, we've sent a confirmation link to <strong data-sent-email></strong>. Open it to activate your account and sign in. It expires in 24 hours.</p>
+        <div data-dev-fallback hidden style="margin-top:18px">
+          <div class="alert dev"><strong>DEV MODE</strong> — no email provider configured. Click below to confirm + sign in.</div>
+          <a href="#" class="btn primary lg block" data-dev-link style="margin-top:12px">Confirm &amp; continue →</a>
+        </div>
+        <p class="faint tiny" style="margin-top:16px">Didn't get it? Check spam, or <a href="/sign-in">sign in</a> if you already have an account.</p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .signup { padding-block: clamp(36px, 6vw, 72px); }
+  .su-head { text-align: center; max-width: 520px; margin: 0 auto 30px; }
+  .su-title { font-size: clamp(34px, 5vw, 46px); margin: 12px 0 14px; }
+  .su-lead { font-size: 15px; line-height: 1.6; }
+  .si-card { max-width: 460px; margin: 0 auto; background: var(--paper); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 34px 32px; box-shadow: 0 24px 56px -26px rgba(26,34,56,.16); position: relative; }
+  .si-card::before { content: ''; position: absolute; inset: -1px -1px auto; height: 4px; background: var(--accent); border-radius: var(--radius) var(--radius) 0 0; }
+  .haveacct { text-align: center; margin-top: 18px; }
+  .trust { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .trust .check { color: var(--success); font-weight: 700; }
+  .sent-ico { font-family: var(--serif); font-size: 46px; color: var(--accent); line-height: 1; margin-bottom: 14px; }
+  .sent-h { font-size: 28px; margin-bottom: 10px; }
+  .alert.dev code { background: rgba(0,0,0,.08); padding: 1px 5px; border-radius: 3px; }
+</style>
+
+<script>
+  const root = document.querySelector('.signup')!;
+  const form = root.querySelector<HTMLFormElement>('[data-signup-form]')!;
+  const cardDefault = root.querySelector<HTMLElement>('[data-card-default]')!;
+  const cardSent = root.querySelector<HTMLElement>('[data-card-sent]')!;
+  const errorEl = form.querySelector<HTMLElement>('[data-form-error]')!;
+  const submit = form.querySelector<HTMLButtonElement>('[data-submit]')!;
+  const lDefault = submit.querySelector<HTMLElement>('.l-default')!;
+  const lLoading = submit.querySelector<HTMLElement>('.l-loading')!;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorEl.hidden = true;
+    submit.disabled = true; lDefault.hidden = true; lLoading.hidden = false;
+    const fd = new FormData(form);
+    try {
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: String(fd.get('name') || '').trim(), email: String(fd.get('email') || '').trim(), password: String(fd.get('password') || ''), next: String(fd.get('next') || '') }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string; devLink?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Could not create your account.');
+      root.querySelector<HTMLElement>('[data-sent-email]')!.textContent = String(fd.get('email') || '');
+      cardDefault.hidden = true; cardSent.hidden = false;
+      if (data.devLink) { const df = root.querySelector<HTMLElement>('[data-dev-fallback]')!; const dl = root.querySelector<HTMLAnchorElement>('[data-dev-link]')!; df.hidden = false; dl.href = data.devLink; }
+    } catch (err) { errorEl.hidden = false; errorEl.textContent = err instanceof Error ? err.message : 'Network error.'; }
+    finally { submit.disabled = false; lDefault.hidden = false; lLoading.hidden = true; }
+  });
+</script>

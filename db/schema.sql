@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS users (
   phone             TEXT,
   role              TEXT NOT NULL DEFAULT 'client',   -- 'client' | 'doctor' | 'admin'
   email_verified_at INTEGER,
+  password_hash     TEXT,                    -- pbkdf2$...; NULL = link-only (no password set)
   created_at        INTEGER NOT NULL,
   last_seen_at      INTEGER NOT NULL
 );
@@ -247,7 +248,8 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
   used_at       INTEGER,
   client_ip     TEXT,
   user_agent    TEXT,
-  created_at    INTEGER NOT NULL
+  created_at    INTEGER NOT NULL,
+  purpose       TEXT NOT NULL DEFAULT 'login' -- login | verify | reset
 );
 CREATE INDEX IF NOT EXISTS idx_tokens_email ON auth_tokens(email);
 

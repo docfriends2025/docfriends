@@ -64,6 +64,53 @@ You'll see each doctor's verdict, their answers to your questions, and what they
   };
 }
 
+export function verifyEmail(opts: { email: string; link: string }): SendOpts {
+  return {
+    to: opts.email,
+    subject: 'Confirm your email — DocFriends',
+    text: `Welcome to DocFriends.
+
+Confirm your email to activate your account and sign in:
+
+  ${opts.link}
+
+This link expires in 24 hours and can only be used once. If you didn't create an account, you can ignore this email.
+
+— The DocFriends team`,
+  };
+}
+
+export function resetEmail(opts: { email: string; link: string }): SendOpts {
+  return {
+    to: opts.email,
+    subject: 'Reset your password — DocFriends',
+    text: `We received a request to reset your DocFriends password.
+
+Set a new password here:
+
+  ${opts.link}
+
+This link expires in 1 hour and can only be used once. If you didn't request this, you can safely ignore it — your password won't change.
+
+— The DocFriends team`,
+  };
+}
+
+export function existingAccountEmail(opts: { email: string; signInLink: string; resetLink: string }): SendOpts {
+  return {
+    to: opts.email,
+    subject: 'You already have a DocFriends account',
+    text: `Someone (probably you) tried to sign up with this email, but you already have a DocFriends account.
+
+Sign in:        ${opts.signInLink}
+Forgot password? ${opts.resetLink}
+
+If this wasn't you, no action is needed — no account was created or changed.
+
+— The DocFriends team`,
+  };
+}
+
 export function magicLinkEmail(opts: { email: string; link: string }): SendOpts {
   return {
     to: opts.email,
