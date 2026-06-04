@@ -1,0 +1,140 @@
+---
+// /admin/specialties — manage specialist categories. Admin-role guarded by middleware.
+// Add a category, rename it, or toggle active/inactive. No delete: specialties are
+// referenced by doctors + cases, so deactivate instead (drops them from public dropdowns).
+import PortalShell from '~/components/PortalShell.astro';
+import { getEnv, getDb } from '~/lib/db';
+import { initialsFrom } from '~/lib/format';
+
+export const prerender = false;
+const env = getEnv(Astro.locals);
+const user = Astro.locals.user!;
+
+const res = await getDb(env).execute(`
+  SELECT s.slug, s.name, s.description, s.position, s.active,
+         (SELECT COUNT(*) FROM doctors d WHERE d.specialty_slug = s.slug) doctor_count,
+         (SELECT COUNT(*) FROM cases c WHERE c.specialty_slug = s.slug) case_count
+  FROM specialties s ORDER BY s.position, s.name`);
+
+const rows = res.rows.map((r) => ({
+  slug: String(r.slug), name: String(r.name), description: r.description ? String(r.description) : '',
+  active: !!Number(r.active), doctors: Number(r.doctor_count), cases: Number(r.case_count),
+}));
+const activeCount = rows.filter((r) => r.active).length;
+---
+
+<PortalShell role="admin" active="specialties" title="Specialties — DocFriends admin">
+  <div class="topbar">
+    <div><div class="eyebrow">Catalog</div><h1>Specialties</h1></div>
+    <span class="who"><span class="ava">{initialsFrom(user.name, user.email)}</span> {user.name ?? user.email}</span>
+  </div>
+
+  <!-- Add a specialty -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="sec-head"><h2>Add a specialty</h2></div>
+    <p class="muted" style="font-size:13.5px;margin:-4px 0 14px">A URL-safe slug is generated from the name. New categories appear in the apply + invite dropdowns immediately.</p>
+    <form data-add-form class="sp-add">
+      <div class="sp-add-grid">
+        <div><label class="field-label" for="sp-name">Name <span class="opt">· required</span></label><input id="sp-name" name="name" class="spec-select" maxlength="80" placeholder="e.g. Rheumatology" required /></div>
+        <div><label class="field-label" for="sp-desc">Description <span class="opt">(optional)</span></label><input id="sp-desc" name="description" class="spec-select" maxlength="300" placeholder="Short blurb" /></div>
+        <div style="max-width:120px"><label class="field-label" for="sp-pos">Sort</label><input id="sp-pos" name="position" type="number" min="0" max="999" class="spec-select" placeholder="auto" /></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:14px">
+        <label style="display:flex;align-items:center;gap:7px;font-size:14px;cursor:pointer"><input type="checkbox" name="active" checked /> Active</label>
+        <button class="btn primary" data-add-submit>Add specialty →</button>
+        <span class="sp-msg" data-add-msg hidden></span>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="sec-head"><h2>All specialties</h2><span class="chip ok">{activeCount} active</span><span class="chip">{rows.length} total</span></div>
+    {rows.length === 0
+      ? <div class="empty">No specialties yet — add one above.</div>
+      : rows.map((s) => (
+        <div class="sp-row" data-slug={s.slug}>
+          <div class="sp-main">
+            <input class="sp-name-in" data-name value={s.name} maxlength="80" />
+            <div class="sp-meta">
+              <span class="mono">{s.slug}</span> ·
+              <span>{s.doctors} doctor{s.doctors === 1 ? '' : 's'}</span> ·
+              <span>{s.cases} case{s.cases === 1 ? '' : 's'}</span>
+              {!s.active && <span class="chip" style="margin-left:6px">inactive</span>}
+            </div>
+          </div>
+          <div class="sp-actions">
+            <button class="btn ghost sm" data-save>Save name</button>
+            {s.active
+              ? <button class="btn danger-ghost sm" data-toggle="0">Deactivate</button>
+              : <button class="btn accent sm" data-toggle="1">Activate</button>}
+          </div>
+          <div class="sp-err" data-err hidden></div>
+        </div>
+      ))}
+  </div>
+</PortalShell>
+
+<style>
+  .sp-add-grid { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 14px; align-items: end; }
+  .sp-msg { font-size: 13px; }
+  .sp-msg.ok { color: var(--success); } .sp-msg.bad { color: var(--danger); }
+  .sp-row { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; padding: 14px 4px; border-top: 1px solid var(--line); }
+  .sp-row:first-of-type { border-top: 0; }
+  .sp-name-in { font: inherit; font-size: 15px; font-weight: 600; color: var(--ink); border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; background: transparent; width: 100%; max-width: 360px; }
+  .sp-name-in:hover, .sp-name-in:focus { border-color: var(--line-strong); background: var(--paper); outline: none; }
+  .sp-meta { font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; padding-left: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .sp-actions { display: flex; gap: 8px; }
+  .sp-err { grid-column: 1 / -1; font-size: 12.5px; color: var(--danger); }
+  @media (max-width: 720px) { .sp-add-grid { grid-template-columns: 1fr; } .sp-row { grid-template-columns: 1fr; } }
+</style>
+
+<script>
+  async function call(payload: Record<string, unknown>) {
+    const res = await fetch('/api/admin/specialty', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const d = await res.json() as { ok?: boolean; error?: string };
+    if (!res.ok || !d.ok) throw new Error(d.error || 'Request failed.');
+    return d;
+  }
+
+  // Add
+  const addForm = document.querySelector<HTMLFormElement>('[data-add-form]');
+  if (addForm) {
+    const msg = addForm.querySelector<HTMLElement>('[data-add-msg]')!;
+    const btn = addForm.querySelector<HTMLButtonElement>('[data-add-submit]')!;
+    addForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.hidden = true; btn.disabled = true;
+      const fd = new FormData(addForm);
+      const posVal = String(fd.get('position') || '').trim();
+      const payload: Record<string, unknown> = {
+        action: 'add', name: String(fd.get('name') || '').trim(),
+        description: String(fd.get('description') || '').trim() || undefined,
+        active: fd.get('active') !== null,
+      };
+      if (posVal) payload.position = Number(posVal);
+      try { await call(payload); msg.hidden = false; msg.textContent = 'Added ✓'; msg.className = 'sp-msg ok'; setTimeout(() => location.reload(), 700); }
+      catch (err) { msg.hidden = false; msg.textContent = err instanceof Error ? err.message : 'Error'; msg.className = 'sp-msg bad'; btn.disabled = false; }
+    });
+  }
+
+  // Rename + toggle per row
+  document.querySelectorAll<HTMLElement>('.sp-row').forEach((row) => {
+    const slug = row.dataset.slug!;
+    const err = row.querySelector<HTMLElement>('[data-err]')!;
+    const nameIn = row.querySelector<HTMLInputElement>('[data-name]')!;
+    const fail = (e: unknown) => { err.hidden = false; err.textContent = e instanceof Error ? e.message : 'Error'; };
+
+    row.querySelector<HTMLButtonElement>('[data-save]')?.addEventListener('click', async (ev) => {
+      err.hidden = true; const btn = ev.currentTarget as HTMLButtonElement; btn.disabled = true;
+      try { await call({ action: 'update', slug, name: nameIn.value.trim() }); btn.textContent = 'Saved ✓'; setTimeout(() => (btn.textContent = 'Save name', btn.disabled = false), 1000); }
+      catch (e) { fail(e); btn.disabled = false; }
+    });
+
+    row.querySelector<HTMLButtonElement>('[data-toggle]')?.addEventListener('click', async (ev) => {
+      err.hidden = true; const btn = ev.currentTarget as HTMLButtonElement; btn.disabled = true;
+      const active = btn.dataset.toggle === '1';
+      try { await call({ action: 'toggle', slug, active }); location.reload(); }
+      catch (e) { fail(e); btn.disabled = false; }
+    });
+  });
+</script>
