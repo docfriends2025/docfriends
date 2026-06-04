@@ -41,7 +41,10 @@ const home = role === 'admin' ? '/admin' : '/doctor';
           ? <a class:list={['nav', { on: it.key === active }]} href={it.href}><span class="i">{it.i}</span>{it.label}</a>
           : <span class="nav disabled"><span class="i">{it.i}</span>{it.label}</span>
       ))}
-      {role === 'admin' && <div class="foot faint">{SITE.supportEmail}</div>}
+      <div class="side-foot">
+        <a class="nav signout-link" href="/api/auth/sign-out"><span class="i">⎋</span>Sign out</a>
+        {role === 'admin' && <div class="foot faint">{SITE.supportEmail}</div>}
+      </div>
     </aside>
     <main class="main">
       <slot />

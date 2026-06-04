@@ -20,6 +20,12 @@ body.portal-body { background: var(--paper-2); }
 .portal .nav.disabled { color: var(--ink-light); cursor: default; }
 .portal .nav .i { width: 15px; text-align: center; opacity: .8; }
 .portal .side .foot { margin-top: auto; padding: 10px 8px 0; border-top: 1px solid var(--line); font-size: 12px; }
+/* Footer area pinned to the bottom of the sidebar; holds the sign-out (always visible,
+   incl. mobile) and the admin support email. */
+.portal .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 2px; padding-top: 10px; border-top: 1px solid var(--line); }
+.portal .side-foot .foot { margin-top: 0; border-top: 0; padding-top: 6px; }
+.portal .nav.signout-link { color: var(--ink-soft); }
+.portal a.nav.signout-link:hover { background: var(--paper-2); color: var(--danger); }
 
 /* main */
 .portal .main { padding: 24px 30px 48px; min-width: 0; }
@@ -122,6 +128,8 @@ body.portal-body { background: var(--paper-2); }
   .portal { grid-template-columns: 1fr; }
   .portal .side { flex-direction: row; flex-wrap: wrap; align-items: center; min-height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
   .portal .side .lbl, .portal .side .foot { display: none; }
+  /* In the collapsed row sidebar, keep sign-out inline with the nav items. */
+  .portal .side-foot { margin: 0 0 0 auto; border-top: 0; padding-top: 0; }
   .portal .kpis { grid-template-columns: 1fr 1fr; }
   .portal .assign-grid, .portal .op-grid, .portal .kanban { grid-template-columns: 1fr; }
 }
