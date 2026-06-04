@@ -40,9 +40,9 @@ const FALLBACK_POSTS: JournalPost[] = [
 ];
 
 const FALLBACK_PACKAGES: Package[] = [
-  { slug: 'single',  name: 'Single',  opinionCount: 1, priceCents: 14900, blurb: 'A sanity check', featured: false },
-  { slug: 'council', name: 'Council', opinionCount: 3, priceCents: 34900, blurb: 'Compare three perspectives', featured: true },
-  { slug: 'board',   name: 'Board',   opinionCount: 5, priceCents: 54900, blurb: 'A full panel', featured: false },
+  { slug: 'single',  name: 'Single',  opinionCount: 1, priceCents: 29900, blurb: 'A sanity check', featured: false },
+  { slug: 'council', name: 'Council', opinionCount: 2, priceCents: 49900, blurb: 'Compare two perspectives', featured: true },
+  { slug: 'board',   name: 'Board',   opinionCount: 3, priceCents: 69900, blurb: 'A full panel', featured: false },
 ];
 
 const FALLBACK_SPECIALTIES: Specialty[] = [

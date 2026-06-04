@@ -2,7 +2,7 @@
 // /admin/cases/[id] — set specialty + assign doctors. Admin-role guarded by middleware.
 import PortalShell from '~/components/PortalShell.astro';
 import { getEnv, getDb } from '~/lib/db';
-import { formatUSD, initialsFrom } from '~/lib/format';
+import { formatINR, initialsFrom } from '~/lib/format';
 import { doctorsInSpecialty, fitFromRating, ageSexCompact, questionsOf, type Doctor } from '~/lib/portal';
 
 export const prerender = false;
@@ -75,7 +75,7 @@ const clientLabel = c
       <div class="card">
         <h2 style="margin-bottom:14px">Case summary</h2>
         <div class="summary-row"><span class="lab">Client</span><span>{clientLabel}</span></div>
-        <div class="summary-row"><span class="lab">Package</span><span>{c.pkg_name ? String(c.pkg_name) : '—'}{opinionCount ? ` · ${opinionCount} opinion${opinionCount > 1 ? 's' : ''}` : ''}{c.payment_status === 'paid' && c.pkg_price != null ? ` · paid ${formatUSD(Number(c.pkg_price))}` : ''}</span></div>
+        <div class="summary-row"><span class="lab">Package</span><span>{c.pkg_name ? String(c.pkg_name) : '—'}{opinionCount ? ` · ${opinionCount} opinion${opinionCount > 1 ? 's' : ''}` : ''}{c.payment_status === 'paid' && c.pkg_price != null ? ` · paid ${formatINR(Number(c.pkg_price))}` : ''}</span></div>
         <div class="summary-row"><span class="lab">Specialty</span><span>{c.spec_name ? String(c.spec_name) : <span class="faint">— not set —</span>}</span></div>
         <div class="summary-row"><span class="lab">Status</span><span>{String(c.status)}</span></div>
         <div class="summary-row"><span class="lab">Symptoms</span><span><em>{c.symptoms ? `"${String(c.symptoms)}"` : '—'}</em></span></div>

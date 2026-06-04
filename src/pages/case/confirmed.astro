@@ -5,7 +5,7 @@ import BaseLayout from '~/layouts/BaseLayout.astro';
 import FlowSteps from '~/components/FlowSteps.astro';
 import { getEnv, hasDb, getDb } from '~/lib/db';
 import { getPackages } from '~/lib/content';
-import { formatUSD } from '~/lib/format';
+import { formatINR } from '~/lib/format';
 
 export const prerender = false;
 
@@ -87,7 +87,7 @@ const steps = [
             </div>
             <div class="r-row total">
               <span>Paid today</span>
-              <span class="h-display amt">{formatUSD(order.priceCents)}</span>
+              <span class="h-display amt">{formatINR(order.priceCents)}</span>
             </div>
           </div>
 

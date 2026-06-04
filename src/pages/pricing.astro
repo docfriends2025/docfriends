@@ -2,7 +2,7 @@
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import { getEnv } from '~/lib/db';
 import { getPackages } from '~/lib/content';
-import { formatUSD } from '~/lib/format';
+import { formatINR } from '~/lib/format';
 
 export const prerender = false;
 const packages = await getPackages(getEnv(Astro.locals));
@@ -26,7 +26,7 @@ const dots = (n: number, max = 5) => Array.from({ length: max }, (_, i) => i < n
             <p class="muted p-blurb">{pkg.blurb}</p>
             <div class="dots">{dots(pkg.opinionCount).map((on) => <span class:list={['dot', { on }]}>{on ? '⚕' : ''}</span>)}</div>
             <div class="faint tiny">{pkg.opinionCount} doctor opinion{pkg.opinionCount > 1 ? 's' : ''}</div>
-            <div class="p-price h-display">{formatUSD(pkg.priceCents)}</div>
+            <div class="p-price h-display">{formatINR(pkg.priceCents)}</div>
             <div class="faint tiny">one-time · refund if late</div>
             <a href="/case/start" class:list={['btn', pkg.featured ? 'primary' : 'ghost', 'block']} style="margin-top:20px">Choose {pkg.name} →</a>
           </div>

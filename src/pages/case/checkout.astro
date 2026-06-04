@@ -7,7 +7,7 @@ import CaseRail from '~/components/CaseRail.astro';
 import { getEnv } from '~/lib/db';
 import { getPackages } from '~/lib/content';
 import { loadDraft } from '~/lib/cases';
-import { formatUSD } from '~/lib/format';
+import { formatINR } from '~/lib/format';
 
 export const prerender = false;
 
@@ -52,7 +52,7 @@ const preselect = packages.find((p) => p.featured)?.slug ?? packages[0]?.slug ??
                     {pkg.featured && <span class="badge">most chosen</span>}
                     <span class="pkg-name h-display">{pkg.name}</span>
                     <span class="muted tiny">{pkg.blurb}</span>
-                    <span class="pkg-price h-display">{formatUSD(pkg.priceCents)}</span>
+                    <span class="pkg-price h-display">{formatINR(pkg.priceCents)}</span>
                     <span class="faint tiny">{pkg.opinionCount} opinion{pkg.opinionCount > 1 ? 's' : ''} · refund if late</span>
                   </label>
                 ))}
@@ -79,7 +79,7 @@ const preselect = packages.find((p) => p.featured)?.slug ?? packages[0]?.slug ??
               </div>
 
               <button type="submit" class="btn accent lg block" style="margin-top:24px" data-submit>
-                <span class="l-default">Pay <span data-total>{formatUSD(packages.find((p) => p.slug === preselect)?.priceCents ?? 0)}</span> &amp; submit case →</span>
+                <span class="l-default">Pay <span data-total>{formatINR(packages.find((p) => p.slug === preselect)?.priceCents ?? 0)}</span> &amp; submit case →</span>
                 <span class="l-loading" hidden>Processing…</span>
               </button>
               <div class="alert error" data-form-error hidden style="margin-top:14px"></div>
@@ -137,12 +137,9 @@ const preselect = packages.find((p) => p.featured)?.slug ?? packages[0]?.slug ??
   const lDefault = submit?.querySelector('.l-default') as HTMLElement | null;
   const lLoading = submit?.querySelector('.l-loading') as HTMLElement | null;
 
-  // Mirror of formatUSD() from ~/lib/format — kept inline so this stays import-free.
-  function usd(cents: number): string {
-    const hasFraction = Math.round(cents) % 100 !== 0;
-    return '$' + (cents / 100).toLocaleString('en-US', {
-      minimumFractionDigits: hasFraction ? 2 : 0, maximumFractionDigits: 2,
-    });
+  // Mirror of formatINR() from ~/lib/format — kept inline so this stays import-free.
+  function inr(paise: number): string {
+    return '₹' + Math.round(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
   }
 
   function selectedRadio(): HTMLInputElement | null {
@@ -150,7 +147,7 @@ const preselect = packages.find((p) => p.featured)?.slug ?? packages[0]?.slug ??
   }
   function syncTotal() {
     const r = selectedRadio();
-    if (r && totalEl) totalEl.textContent = usd(Number(r.dataset.price || 0));
+    if (r && totalEl) totalEl.textContent = inr(Number(r.dataset.price || 0));
   }
   form?.querySelectorAll<HTMLInputElement>('input[name="package"]').forEach((r) =>
     r.addEventListener('change', syncTotal));

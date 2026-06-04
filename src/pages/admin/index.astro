@@ -2,7 +2,7 @@
 // /admin — Admin overview. Admin-role guarded by middleware.
 import PortalShell from '~/components/PortalShell.astro';
 import { getEnv, getDb } from '~/lib/db';
-import { formatUSD, initialsFrom } from '~/lib/format';
+import { formatINR, initialsFrom } from '~/lib/format';
 
 export const prerender = false;
 
@@ -68,7 +68,7 @@ const openConsults = Number((await db.execute("SELECT COUNT(*) n FROM teleconsul
   <div class="kpis">
     <div class="kpi"><div class="k-l">Cases active</div><div class="k-n">{activeCount}</div><div class="k-s">{attention.length} awaiting your action</div></div>
     <div class="kpi"><div class="k-l">Paid this month</div><div class="k-n">{paidCount}</div><div class="k-s">orders confirmed</div></div>
-    <div class="kpi"><div class="k-l">Revenue · month</div><div class="k-n">{formatUSD(revenue)}</div><div class="k-s">from paid orders</div></div>
+    <div class="kpi"><div class="k-l">Revenue · month</div><div class="k-n">{formatINR(revenue)}</div><div class="k-s">from paid orders</div></div>
     <div class="kpi"><div class="k-l">Doctors</div><div class="k-n">{doctorCount}</div><div class="k-s">across {specialtyCount} specialties</div></div>
   </div>
 

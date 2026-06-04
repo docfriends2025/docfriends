@@ -1,13 +1,16 @@
 -- DocFriends — schema.sql
 -- SQLite/libSQL (Turso). Idempotent: safe to re-run. Run with `npm run db:push`.
--- Times are epoch milliseconds (INTEGER). Money is US cents (INTEGER).
+-- Times are epoch milliseconds (INTEGER). Money is minor units (INTEGER): INR paise
+-- for customer pricing (packages.price_cents, cases.price_cents, payments.amount_cents).
+-- NOTE: case_doctors.commission_cents predates the INR switch and still holds USD cents
+-- (legacy) — revisit when doctor payouts are finalised.
 
 -- ─── Reference: packages (Single / Council / Board) ──────────────────
 CREATE TABLE IF NOT EXISTS packages (
   slug          TEXT PRIMARY KEY,          -- 'single' | 'council' | 'board'
   name          TEXT NOT NULL,
   opinion_count INTEGER NOT NULL,          -- doctors on the panel
-  price_cents   INTEGER NOT NULL,          -- one-time, USD cents
+  price_cents   INTEGER NOT NULL,          -- one-time, INR paise (e.g. 29900 = ₹299)
   blurb         TEXT,
   featured      INTEGER NOT NULL DEFAULT 0,
   position      INTEGER NOT NULL DEFAULT 0

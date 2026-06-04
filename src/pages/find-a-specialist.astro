@@ -2,14 +2,14 @@
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import { getEnv, getDb, hasDb } from '~/lib/db';
 import { getPackages } from '~/lib/content';
-import { formatUSD } from '~/lib/format';
+import { formatINR } from '~/lib/format';
 import { SYMPTOM_GROUPS } from '~/lib/symptoms';
 
 export const prerender = false;
 
 const env = getEnv(Astro.locals);
 const packages = await getPackages(env);
-const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
+const fromPrice = formatINR(Math.min(...packages.map((p) => p.priceCents)));
 
 // Which specialties actually have an active doctor — used so the result CTA never
 // dead-ends at a checkout that can't be fulfilled. On any DB hiccup we fall back to

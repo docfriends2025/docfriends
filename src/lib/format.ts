@@ -1,14 +1,10 @@
 // ~/lib/format.ts — display helpers.
 
-/** US cents → "$349" (or "$349.50" when needed). */
-export function formatUSD(cents: number | null | undefined): string {
-  if (cents == null) return '—';
-  const dollars = cents / 100;
-  const hasFraction = Math.round(cents) % 100 !== 0;
-  return '$' + dollars.toLocaleString('en-US', {
-    minimumFractionDigits: hasFraction ? 2 : 0,
-    maximumFractionDigits: 2,
-  });
+/** Paise → "₹299" / "₹1,299" — whole rupees, Indian digit grouping, no decimals. */
+export function formatINR(paise: number | null | undefined): string {
+  if (paise == null) return '—';
+  const rupees = Math.round(paise / 100);
+  return '₹' + rupees.toLocaleString('en-IN', { maximumFractionDigits: 0 });
 }
 
 /** epoch ms → "12m ago" / "3h ago" / "Apr 4, 2026" */

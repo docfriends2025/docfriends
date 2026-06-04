@@ -3,9 +3,9 @@
 
 -- ─── Packages (USD, per wireframe screen 8) ──────────────────────────
 INSERT OR REPLACE INTO packages (slug, name, opinion_count, price_cents, blurb, featured, position) VALUES
-  ('single',  'Single',  1, 14900, 'A sanity check',         0, 10),
-  ('council', 'Council', 3, 34900, 'Compare three perspectives', 1, 20),
-  ('board',   'Board',   5, 54900, 'A full panel',           0, 30);
+  ('single',  'Single',  1, 29900, 'A sanity check',          0, 10),
+  ('council', 'Council', 2, 49900, 'Compare two perspectives', 1, 20),
+  ('board',   'Board',   3, 69900, 'A full panel',             0, 30);
 
 -- ─── Specialties ─────────────────────────────────────────────────────
 INSERT OR IGNORE INTO specialties (slug, name, description, position, active) VALUES
