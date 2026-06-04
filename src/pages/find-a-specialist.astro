@@ -1,14 +1,26 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
-import { getEnv } from '~/lib/db';
+import { getEnv, getDb, hasDb } from '~/lib/db';
 import { getPackages } from '~/lib/content';
 import { formatUSD } from '~/lib/format';
 import { SYMPTOM_GROUPS } from '~/lib/symptoms';
 
 export const prerender = false;
 
-const packages = await getPackages(getEnv(Astro.locals));
+const env = getEnv(Astro.locals);
+const packages = await getPackages(env);
 const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
+
+// Which specialties actually have an active doctor — used so the result CTA never
+// dead-ends at a checkout that can't be fulfilled. On any DB hiccup we fall back to
+// `null`, which the client treats as "assume bookable" (preserves prior behavior).
+let staffedSlugs: string[] | null = null;
+if (hasDb(env)) {
+  try {
+    const r = await getDb(env).execute("SELECT DISTINCT specialty_slug FROM doctors WHERE active = 1 AND specialty_slug IS NOT NULL");
+    staffedSlugs = r.rows.map((x) => String(x.specialty_slug));
+  } catch (e) { console.error('finder: staffed query failed', e instanceof Error ? e.message : 'err'); }
+}
 ---
 
 <BaseLayout
@@ -16,7 +28,7 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
   description="Tell us your symptom, answer a few questions, and we'll point you to the right specialist. Guidance only — not a diagnosis."
   activeNav="/find-a-specialist"
 >
-  <section class="finder" data-from-price={fromPrice}>
+  <section class="finder" data-from-price={fromPrice} data-staffed={staffedSlugs === null ? '' : JSON.stringify(staffedSlugs)}>
     <!-- ── LEFT: symptom list ── -->
     <aside class="sym-pane">
       <div class="sym-head">
@@ -235,14 +247,48 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
   .finder .res-safety strong { font-weight: 700; }
   .finder .urgent-banner { margin-bottom: 18px; padding: 14px 16px; border-radius: 12px; background: var(--danger); color: #fff; font-size: 13.5px; line-height: 1.5; }
 
+  /* ── Qualitative cause tones (seed-derived symptoms — words, never % ) ── */
+  .finder .cause-row.qual { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .finder .cause-row.qual:last-of-type { border-bottom: 0; }
+  .finder .cause-name { font-size: 14px; }
+  .finder .tone-badge { font-size: 11px; font-weight: 600; letter-spacing: .03em; padding: 3px 10px; border-radius: 99px; white-space: nowrap; }
+  .finder .tone-badge.tone-common { background: var(--success-soft); color: var(--success); }
+  .finder .tone-badge.tone-less-common { background: var(--warn-soft); color: var(--warn); }
+  .finder .tone-badge.tone-serious-rare { background: rgba(169,63,63,.1); color: var(--danger); }
+
+  /* ── Unstaffed specialty: guidance state, no checkout ── */
+  .finder .reco-card.not-bookable { border-color: var(--line-strong); }
+  .finder .reco-card.not-bookable .reco-badge { background: var(--ink-light); }
+  .finder .expand-note { margin-top: 18px; padding: 16px; border-radius: 12px; background: var(--paper-2); border: 1px solid var(--line); }
+  .finder .expand-h { font-weight: 600; font-size: 14.5px; margin-bottom: 6px; }
+  .finder .expand-note p { font-size: 13px; color: var(--ink-soft); line-height: 1.55; margin-bottom: 12px; }
+
+  /* ── Crisis state: support resources only, single column, no CTA ── */
+  .finder .results-grid.crisis-mode { grid-template-columns: 1fr; }
+  .finder .crisis-card { border: 1.5px solid var(--accent); border-radius: var(--radius); background: var(--paper); padding: 26px; max-width: 640px; }
+  .finder .crisis-h { font-family: var(--serif); font-size: 24px; line-height: 1.2; margin-bottom: 14px; }
+  .finder .crisis-body { font-size: 15px; line-height: 1.65; color: var(--ink-soft); margin-bottom: 16px; }
+  .finder .crisis-immediate { font-size: 14px; line-height: 1.6; padding: 14px 16px; border-radius: 10px; background: rgba(169,63,63,.08); color: var(--danger); margin-bottom: 16px; }
+  .finder .crisis-lines { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .finder .crisis-line { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: 10px; }
+  .finder .crisis-line .cl-name { font-weight: 600; font-size: 14px; }
+  .finder .crisis-line .cl-contact { font-family: var(--mono); font-size: 13px; color: var(--accent-deep); }
+  .finder .crisis-line .cl-region { font-size: 11px; color: var(--ink-light); text-transform: uppercase; letter-spacing: .05em; }
+  .finder .crisis-closing { font-size: 13.5px; color: var(--ink-soft); line-height: 1.6; }
+
   @media (max-width: 560px) { .finder .opt { flex: 1 1 100%; } }
 </style>
 
 <script>
-  import { questionsFor, recommend, SYMPTOMS } from '../lib/symptoms';
+  import { questionsFor, recommend, SYMPTOMS, CRISIS_RESOURCES } from '../lib/symptoms';
 
   const root = document.querySelector<HTMLElement>('.finder')!;
   const fromPrice = root.dataset.fromPrice ?? '$149';
+  // Specialties with an active doctor. Empty string attr → null → "assume bookable".
+  const staffedRaw = root.dataset.staffed ?? '';
+  const staffed: Set<string> | null = staffedRaw ? new Set<string>(JSON.parse(staffedRaw)) : null;
+  const isBookable = (slug: string | null): boolean => !!slug && (staffed === null || staffed.has(slug));
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const stages = {
     questions: root.querySelector<HTMLElement>('[data-stage="questions"]')!,
     results: root.querySelector<HTMLElement>('[data-stage="results"]')!,
@@ -393,29 +439,57 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
   }
 
   // ── results ──
+  const TONE_LABEL: Record<string, string> = { 'common': 'Common', 'less-common': 'Less common', 'serious-rare': 'Rare but serious' };
+
   function renderResults() {
     const sel = selectedNames();
     const rec = recommend(sel, answers);
     if (!rec) return;
+    const grid = root.querySelector<HTMLElement>('.results-grid')!;
+
+    // ── CRISIS: a self-harm answer was selected. Show support resources ONLY —
+    //    no causes, no specialist, no booking/checkout CTA. ──
+    if (rec.crisis) {
+      grid.classList.add('crisis-mode');
+      root.querySelector<HTMLElement>('[data-recap]')!.innerHTML = '';
+      root.querySelector<HTMLElement>('[data-recap]')!.closest<HTMLElement>('.col-left')!.hidden = true;
+      const c = CRISIS_RESOURCES;
+      root.querySelector<HTMLElement>('[data-reco]')!.innerHTML = `
+        <div class="crisis-card">
+          <div class="crisis-h">${esc(c.heading)}</div>
+          <p class="crisis-body">${esc(c.body)}</p>
+          <div class="crisis-immediate"><strong>If you are in immediate danger:</strong> ${esc(c.immediate)}</div>
+          <div class="crisis-lines">
+            ${c.lines.map((l) => `<div class="crisis-line"><span class="cl-name">${esc(l.name)}</span><span class="cl-contact">${esc(l.contact)}</span>${l.region ? `<span class="cl-region">${esc(l.region)}</span>` : ''}</div>`).join('')}
+          </div>
+          <p class="crisis-closing">${esc(c.closing)}</p>
+        </div>`;
+      return;
+    }
+    grid.classList.remove('crisis-mode');
+    root.querySelector<HTMLElement>('[data-recap]')!.closest<HTMLElement>('.col-left')!.hidden = false;
+
     const qs = questionsFor(rec.primarySymptom);
-
     root.querySelector<HTMLElement>('[data-recap]')!.innerHTML = `
-      <div class="eyebrow tiny" style="margin-bottom:12px">We asked · you answered — <b>${rec.primarySymptom}</b></div>
-      ${qs.map((q) => `<div class="recap-row"><span class="recap-q">${q.q}</span><span class="recap-a">${answers[q.id] ?? '—'}</span></div>`).join('')}`;
+      <div class="eyebrow tiny" style="margin-bottom:12px">We asked · you answered — <b>${esc(rec.primarySymptom)}</b></div>
+      ${qs.map((q) => `<div class="recap-row"><span class="recap-q">${esc(q.q)}</span><span class="recap-a">${esc(answers[q.id] ?? '—')}</span></div>`).join('')}`;
 
+    // Causes: seed-derived symptoms carry a clinical tone → show a WORD badge, never a
+    // fabricated percentage. Existing symptoms keep their %-match bars.
+    const qualitative = rec.causes.length > 0 && rec.causes.every((c) => !!c.clinicalTone);
     root.querySelector<HTMLElement>('[data-causes]')!.innerHTML = `
-      <div class="eyebrow tiny" style="margin-bottom:4px">Narrowed to</div>
-      <div class="causes-title">${rec.causes.length} most likely</div>
+      <div class="eyebrow tiny" style="margin-bottom:4px">${qualitative ? 'Possible causes' : 'Narrowed to'}</div>
+      <div class="causes-title">${rec.causes.length} ${qualitative ? 'to consider' : 'most likely'}</div>
       ${rec.causes.map((c) => {
+        if (c.clinicalTone) {
+          return `<div class="cause-row qual"><span class="cause-name">${esc(c.name)}</span><span class="tone-badge tone-${c.clinicalTone}">${TONE_LABEL[c.clinicalTone]}</span></div>`;
+        }
         const color = c.tone === 'green' ? 'var(--success)' : c.tone === 'yellow' ? 'var(--warn)' : 'var(--ink-light)';
-        return `<div class="cause-row"><div class="cause-top"><span>${c.name}</span><span class="muted">${c.pct}% match</span></div><div class="pbar"><span style="width:${c.pct}%;background:${color}"></span></div></div>`;
+        return `<div class="cause-row"><div class="cause-top"><span>${esc(c.name)}</span><span class="muted">${c.pct}% match</span></div><div class="pbar"><span style="width:${c.pct}%;background:${color}"></span></div></div>`;
       }).join('')}
       <div class="faint tiny" style="margin-top:12px;line-height:1.5">These are possibilities, not a diagnosis. A specialist confirms.</div>`;
 
     const sp = rec.specialist;
-    // Hand off into the homepage case intake, prefilled with the chosen symptom(s)
-    // and the recommended specialty — that's what creates the draft case the
-    // sign-up → checkout funnel needs.
     const symptomSeed = selectedNames().join(', ');
     const intakeHref = (slug: string | null) => {
       const p = new URLSearchParams();
@@ -424,23 +498,39 @@ const fromPrice = formatUSD(Math.min(...packages.map((p) => p.priceCents)));
       const qstr = p.toString();
       return qstr ? `/?${qstr}#start` : '/#start';
     };
-    const ctaHref = intakeHref(sp.specialtySlug);
+    const bookable = isBookable(sp.specialtySlug);
+    // Primary action: book when staffed; otherwise a "we're expanding" state with a
+    // lightweight interest capture — NEVER a checkout that can't be fulfilled.
+    const primaryAction = bookable
+      ? `<a href="${intakeHref(sp.specialtySlug)}" class="btn primary lg" style="margin-top:18px;width:100%;justify-content:center">Get an opinion from a ${esc(sp.label.toLowerCase())} →</a>
+         <div class="reco-meta"><span class="tiny muted">Specialists on DocFriends · from</span><span class="tiny" style="font-weight:600">${fromPrice}</span></div>`
+      : `<div class="expand-note">
+           <div class="expand-h">We're expanding into ${esc(sp.label.toLowerCase())} care</div>
+           <p>We don't have a ${esc(sp.label.toLowerCase())} available to book just yet. The guidance above still stands — and if it's urgent, please act on the safety note rather than wait.</p>
+           <a class="btn ghost sm" href="mailto:help@docfriends.com?subject=${encodeURIComponent('Interest: ' + sp.label)}&body=${encodeURIComponent("I'd like a " + sp.label + ' on DocFriends.')}">Notify me when it's available →</a>
+         </div>`;
+
     root.querySelector<HTMLElement>('[data-reco]')!.innerHTML = `
-      ${rec.urgent ? `<div class="urgent-banner"><strong>This may need urgent care.</strong> ${rec.redFlag ?? 'Based on your answers, please seek prompt medical attention rather than waiting for an opinion.'}</div>` : ''}
-      <div class="reco-card">
-        <span class="reco-badge">start here</span>
+      ${rec.urgent ? `<div class="urgent-banner"><strong>This may need urgent care.</strong> ${esc(rec.redFlag ?? 'Based on your answers, please seek prompt medical attention rather than waiting for an opinion.')}</div>` : ''}
+      <div class="reco-card${bookable ? '' : ' not-bookable'}">
+        <span class="reco-badge">${bookable ? 'start here' : 'guidance'}</span>
         <div class="eyebrow tiny" style="color:var(--accent)">Recommended specialist</div>
         <div class="reco-top">
           <span class="reco-ic"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3v6a6 6 0 0 0 12 0V3"/><path d="M6 3H4m2 0h2m8 0h2m-2 0h-2"/><path d="M12 15v3a4 4 0 0 0 8 0v-1"/><circle cx="20" cy="14" r="2"/></svg></span>
-          <div><div class="reco-name">${sp.label}</div><div class="muted" style="font-size:13.5px">${sp.blurb}</div></div>
+          <div><div class="reco-name">${esc(sp.label)}</div><div class="muted" style="font-size:13.5px">${esc(sp.blurb)}</div></div>
         </div>
-        <div class="reco-why">${SYMPTOMS[rec.primarySymptom]?.rationale ?? `A ${sp.label.toLowerCase()} is the right specialist to assess this.`}</div>
-        <a href="${ctaHref}" class="btn primary lg" style="margin-top:18px;width:100%;justify-content:center">Get an opinion from a ${sp.label.toLowerCase()} →</a>
-        <div class="reco-meta"><span class="tiny muted">Specialists on DocFriends · from</span><span class="tiny" style="font-weight:600">${fromPrice}</span></div>
+        <div class="reco-why">${esc(SYMPTOMS[rec.primarySymptom]?.rationale ?? `A ${sp.label.toLowerCase()} is the right specialist to assess this.`)}</div>
+        ${primaryAction}
       </div>
       ${rec.alternatives.length ? `<div class="alts"><div class="eyebrow tiny" style="margin-bottom:10px">If symptoms change, also consider</div>
-        ${rec.alternatives.map((a) => `<div class="alt-card"><div><div class="alt-name">${a.specialist.label}</div><div class="alt-when">${a.when}</div></div><a href="${intakeHref(a.specialist.specialtySlug)}" class="btn ghost sm">View →</a></div>`).join('')}</div>` : ''}
-      ${rec.redFlag && !rec.urgent ? `<div class="res-safety"><strong>!</strong><div>${rec.redFlag}</div></div>` : ''}`;
+        ${rec.alternatives.map((a) => {
+          const altBook = isBookable(a.specialist.specialtySlug);
+          const altCta = altBook
+            ? `<a href="${intakeHref(a.specialist.specialtySlug)}" class="btn ghost sm">View →</a>`
+            : `<span class="chip tiny" style="white-space:nowrap">not yet bookable</span>`;
+          return `<div class="alt-card"><div><div class="alt-name">${esc(a.specialist.label)}</div><div class="alt-when">${esc(a.when)}</div></div>${altCta}</div>`;
+        }).join('')}</div>` : ''}
+      ${rec.redFlag && !rec.urgent ? `<div class="res-safety"><strong>!</strong><div>${esc(rec.redFlag)}</div></div>` : ''}`;
   }
 
   // wiring

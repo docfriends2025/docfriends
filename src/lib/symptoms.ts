@@ -2,6 +2,9 @@
 // Pure data + logic (no DB, no framework) so it runs server-side for the initial
 // render AND in the browser for interactivity. Guidance only — never a diagnosis.
 
+import { SEED_SYMPTOMS, NEW_SPECIALTIES, CRISIS_RESOURCES } from './specialist-seed';
+export { CRISIS_RESOURCES };
+
 export interface Specialist {
   key: string;
   label: string;            // "Neurologist"
@@ -9,11 +12,13 @@ export interface Specialist {
   specialtySlug: string | null; // maps to our specialties table where one exists
 }
 
-export interface Cause { name: string; base: number; }
+export type CauseTone = 'common' | 'less-common' | 'serious-rare';
+export interface Cause { name: string; base: number; tone?: CauseTone; }
 export interface QOption {
   label: string;
   boost?: Record<string, number>; // cause name → score delta
   redFlag?: boolean;
+  crisis?: boolean;               // mental-health self-harm answer → CRISIS branch
 }
 export interface Question { id: string; q: string; options: QOption[]; }
 export interface Alternative { specialist: string; when: string; }
@@ -247,10 +252,11 @@ export const SYMPTOMS: Record<string, SymptomData> = {
 export interface Recommendation {
   primarySymptom: string;
   specialist: Specialist;
-  causes: { name: string; pct: number; tone: 'green' | 'yellow' | 'gray' }[];
+  causes: { name: string; pct: number; tone: 'green' | 'yellow' | 'gray'; clinicalTone?: CauseTone }[];
   alternatives: { specialist: Specialist; when: string }[];
   redFlag: string | null;
   urgent: boolean;
+  crisis: boolean;   // a self-harm answer was selected → show support, never a booking CTA
 }
 
 export function questionsFor(symptom: string): Question[] {
@@ -263,28 +269,89 @@ export function recommend(selected: string[], answers: Record<string, string>): 
   const data = SYMPTOMS[primarySymptom];
   const questions = data.questions ?? SHARED_QUESTIONS;
 
-  const causeList = (data.causes ?? GENERIC_CAUSES).map((c) => ({ name: c.name, score: c.base }));
+  const causeList = (data.causes ?? GENERIC_CAUSES).map((c) => ({ name: c.name, score: c.base, tone: c.tone }));
   let urgent = false;
+  let crisis = false;
   for (const q of questions) {
     const chosen = answers[q.id];
     const opt = q.options.find((o) => o.label === chosen);
     if (!opt) continue;
+    if (opt.crisis) crisis = true;       // self-harm answer — overrides everything below
     if (opt.redFlag) urgent = true;
     if (opt.boost) for (const [name, delta] of Object.entries(opt.boost)) {
       const c = causeList.find((x) => x.name === name);
       if (c) c.score += delta;
     }
   }
-  const total = causeList.reduce((s, c) => s + Math.max(0, c.score), 0) || 1;
-  const causes = causeList
-    .map((c) => ({ name: c.name, raw: Math.max(0, c.score) }))
-    .sort((a, b) => b.raw - a.raw)
-    .map((c, i) => ({ name: c.name, pct: Math.round((c.raw / total) * 100), tone: (i === 0 ? 'green' : i === 1 ? 'yellow' : 'gray') as 'green' | 'yellow' | 'gray' }));
 
   const specialist = SPECIALISTS[data.specialist] ?? SPECIALISTS.general;
+
+  // CRISIS short-circuit: a self-harm answer returns a support-only result. The UI
+  // renders CRISIS_RESOURCES and NO booking/checkout CTA — never the paid funnel.
+  if (crisis) {
+    return { primarySymptom, specialist, causes: [], alternatives: [], redFlag: data.redFlag ?? null, urgent: false, crisis: true };
+  }
+
+  const total = causeList.reduce((s, c) => s + Math.max(0, c.score), 0) || 1;
+  const causes = causeList
+    .map((c) => ({ name: c.name, raw: Math.max(0, c.score), clinicalTone: c.tone }))
+    .sort((a, b) => b.raw - a.raw)
+    .map((c, i) => ({ name: c.name, pct: Math.round((c.raw / total) * 100), tone: (i === 0 ? 'green' : i === 1 ? 'yellow' : 'gray') as 'green' | 'yellow' | 'gray', clinicalTone: c.clinicalTone }));
+
   const alternatives = (data.alternatives ?? [])
     .map((a) => ({ specialist: SPECIALISTS[a.specialist], when: a.when }))
     .filter((a) => a.specialist);
 
-  return { primarySymptom, specialist, causes, alternatives, redFlag: data.redFlag ?? null, urgent };
+  return { primarySymptom, specialist, causes, alternatives, redFlag: data.redFlag ?? null, urgent, crisis: false };
+}
+
+// ─── additive merge of the clinician-review seed (specialist-seed.ts) ──────────
+// This registers the NEW specialties, symptoms, and groups at module load WITHOUT
+// editing any of the literals above — the existing ~50 symptoms are untouched.
+// Medical content here is a DRAFT for clinician review; crisis lines are placeholders.
+const TONE_TO_BASE: Record<CauseTone, number> = { common: 60, 'less-common': 30, 'serious-rare': 10 };
+
+// A friendly practitioner label per new slug, taken from the seed (first occurrence).
+const SEED_LABEL: Record<string, string> = {};
+for (const s of SEED_SYMPTOMS) if (!SEED_LABEL[s.specialtySlug]) SEED_LABEL[s.specialtySlug] = s.specialistLabel;
+
+// Register a Specialist for every new specialty (keyed by slug). Existing keys win.
+for (const ns of NEW_SPECIALTIES) {
+  if (!SPECIALISTS[ns.slug]) {
+    SPECIALISTS[ns.slug] = { key: ns.slug, label: SEED_LABEL[ns.slug] ?? ns.name, blurb: ns.description, specialtySlug: ns.slug };
+  }
+}
+// `oncology` is an existing specialty but had no Specialist entry; alternatives reference it.
+if (!SPECIALISTS.oncology) {
+  SPECIALISTS.oncology = { key: 'oncology', label: 'Oncologist', blurb: 'Cancer diagnosis & care', specialtySlug: 'oncology' };
+}
+
+// Map a specialtySlug → a SPECIALISTS key, so seed alternatives (which use slugs)
+// resolve to the right registry entry (existing or new).
+const SLUG_TO_KEY: Record<string, string> = {};
+for (const [key, sp] of Object.entries(SPECIALISTS)) if (sp.specialtySlug && !SLUG_TO_KEY[sp.specialtySlug]) SLUG_TO_KEY[sp.specialtySlug] = key;
+
+for (const s of SEED_SYMPTOMS) {
+  if (SYMPTOMS[s.name]) continue; // never overwrite an existing symptom
+  SYMPTOMS[s.name] = {
+    specialist: SLUG_TO_KEY[s.specialtySlug] ?? 'general',
+    rationale: s.blurb,
+    causes: s.causes.map((c) => ({ name: c.name, base: TONE_TO_BASE[c.tone], tone: c.tone })),
+    questions: s.questions.map((q) => ({
+      id: q.id, q: q.q,
+      options: q.options.map((o) => ({ label: o.label, redFlag: o.redFlag, crisis: o.crisis })),
+    })),
+    alternatives: (s.alternatives ?? [])
+      .map((a) => ({ specialist: SLUG_TO_KEY[a.specialtySlug] ?? '', when: a.when }))
+      .filter((a) => a.specialist),
+    redFlag: s.redFlag,
+  };
+}
+
+// Append NEW groups (and their symptoms) without touching existing groups. If a seed
+// group name happens to match an existing one, its symptoms are appended to it.
+for (const s of SEED_SYMPTOMS) {
+  const existing = SYMPTOM_GROUPS.find(([g]) => g === s.group);
+  if (existing) { if (!existing[1].includes(s.name)) existing[1].push(s.name); }
+  else SYMPTOM_GROUPS.push([s.group, [s.name]]);
 }

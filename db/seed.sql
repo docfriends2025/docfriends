@@ -21,7 +21,26 @@ INSERT OR IGNORE INTO specialties (slug, name, description, position, active) VA
   ('otolaryngology',   'Otolaryngology (ENT)','Ear, nose & throat',           100, 1),
   ('urology',          'Urology',            'Urinary tract & male reproductive',110, 1),
   ('gynecology',       'Gynecology',         'Women''s reproductive health',   120, 1),
-  ('ophthalmology',    'Ophthalmology',      'Eyes & vision',                  130, 1);
+  ('ophthalmology',    'Ophthalmology',      'Eyes & vision',                  130, 1),
+  -- Finder routing targets (added with the symptom-finder expansion). Several have
+  -- no doctors yet — the finder shows a "not yet bookable" state for those.
+  ('dentistry',          'Dentistry',                  'Teeth, gums, jaw and oral health.',                 140, 1),
+  ('psychiatry',         'Psychiatry & mental health', 'Mood, anxiety, sleep and emotional wellbeing.',     150, 1),
+  ('rheumatology',       'Rheumatology',               'Joints, inflammation and autoimmune conditions.',   160, 1),
+  ('nephrology',         'Nephrology',                 'Kidney function and related conditions.',           170, 1),
+  ('hematology',         'Hematology',                 'Blood, clotting and lymph nodes.',                  180, 1),
+  ('allergy_immunology', 'Allergy & immunology',       'Allergies, hives and immune-related illness.',      190, 1),
+  ('infectious_disease', 'Infectious disease',         'Persistent infections and travel-related illness.', 200, 1),
+  ('vascular',           'Vascular',                   'Veins, arteries and circulation.',                  210, 1),
+  ('pain_medicine',      'Pain medicine',              'Chronic and nerve-related pain.',                   220, 1),
+  ('physical_med_rehab', 'Physical medicine & rehab',  'Recovery, mobility and physiotherapy.',             230, 1),
+  ('sleep_medicine',     'Sleep medicine',             'Sleep disorders, snoring and apnea.',               240, 1),
+  ('podiatry',           'Podiatry',                   'Foot and ankle conditions.',                        250, 1),
+  ('sexual_health',      'Sexual health',              'STIs and sexual function, handled discreetly.',     260, 1),
+  ('pediatrics',         'Pediatrics',                 'Health concerns in children.',                      270, 1),
+  ('obstetrics',         'Obstetrics',                 'Pregnancy-related care.',                           280, 1),
+  ('geriatrics',         'Geriatrics',                 'Health and medication in older adults.',            290, 1),
+  ('nutrition_dietetics','Nutrition & dietetics',      'Diet, nutrition and related symptoms.',             300, 1);
 
 -- ─── FAQs (wireframe screen 4) ───────────────────────────────────────
 INSERT OR REPLACE INTO faqs (id, category, question, answer, position) VALUES
