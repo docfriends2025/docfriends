@@ -18,6 +18,7 @@ export const NAV_LINKS = [
   { href: '/pricing', label: 'Pricing', match: ['/pricing'] },
   { href: '/faqs',    label: 'FAQs',    match: ['/faqs'] },
   { href: '/journal', label: 'Journal', match: ['/journal'] },
+  { href: '/for-physicians', label: 'For physicians', match: ['/for-physicians'] },
   { href: '/contact', label: 'Contact', match: ['/contact'] },
 ] as const;
 

@@ -1,0 +1,136 @@
+---
+// /for-physicians — recruitment landing for specialists. Editorial style; routes to
+// the existing application + sign-in. No invented earnings or case-volume figures.
+import BaseLayout from '~/layouts/BaseLayout.astro';
+
+export const prerender = false;
+
+const why = [
+  { i: '🌐', h: 'Fully remote & asynchronous', p: 'Review cases from anywhere, on your own schedule. There are no live calls to staff and no clinic hours to keep.' },
+  { i: '🎯', h: 'Only cases in your specialty', p: 'We route cases to your field, so what reaches you is relevant to your training and interests.' },
+  { i: '🔒', h: 'Patients are anonymised to you', p: 'You see the clinical picture — history, reports, questions — never the patient’s name or contact details.' },
+  { i: '⚕', h: 'Earn per opinion submitted', p: 'Each written opinion you submit is paid. You decide how many cases you take on.' },
+  { i: '✓', h: 'A curated, verified panel', p: 'Every doctor’s credentials are checked before approval, so you’re among vetted peers.' },
+  { i: '◴', h: 'A light, structured workflow', p: 'A clear template — verdict, your read, next steps, answers to the patient’s questions — not paperwork.' },
+];
+
+const steps = [
+  { n: '1', h: 'Apply with your credentials', p: 'Tell us your specialty and experience and share your license details. Credentials are seen only by our review team, never by patients.' },
+  { n: '2', h: 'We verify & approve you', p: 'Our team checks your credentials. Once approved, your doctor account is activated and your case inbox opens.' },
+  { n: '3', h: 'Review cases on your terms', p: 'Receive cases matched to your specialty, write a structured opinion, and optionally offer a short follow-up consult. You control your own availability.' },
+];
+---
+
+<BaseLayout
+  title="For physicians — join the DocFriends panel"
+  description="Board-certified specialists: review second-opinion cases on DocFriends. Fully remote, asynchronous, anonymised patients, paid per opinion. Apply to join the panel."
+  activeNav="/for-physicians"
+>
+  <!-- HERO -->
+  <section class="ph-hero">
+    <div class="container">
+      <div class="eyebrow">— For physicians</div>
+      <h1 class="h-display ph-title">Lend your expertise.<br /><em>On your own schedule.</em></h1>
+      <p class="ph-lead">
+        DocFriends is a curated panel of board-certified specialists who write clear, structured
+        second opinions for patients — fully remotely and asynchronously. Join to review cases in
+        your field, on your time, with the patient’s identity kept private to you.
+      </p>
+      <div class="ph-cta">
+        <a href="/for-physicians/apply" class="btn primary lg">Apply to join →</a>
+        <a href="/sign-in" class="btn ghost lg">Already applied? Sign in</a>
+      </div>
+      <p class="faint tiny ph-trust">Credentials verified before approval · you control your availability</p>
+    </div>
+  </section>
+
+  <!-- WHY JOIN -->
+  <section class="ph-why">
+    <div class="container">
+      <div class="eyebrow">Why join</div>
+      <h2 class="h-display ph-h2">Built around how specialists actually want to work.</h2>
+      <div class="why-grid">
+        {why.map((w) => (
+          <div class="why-card">
+            <span class="why-i">{w.i}</span>
+            <h3 class="why-h">{w.h}</h3>
+            <p class="why-p">{w.p}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="ph-how">
+    <div class="container">
+      <div class="eyebrow">How it works</div>
+      <h2 class="h-display ph-h2">From application to your first case.</h2>
+      <div class="how-grid">
+        {steps.map((s) => (
+          <div class="how-step">
+            <span class="how-n h-display">{s.n}</span>
+            <h3 class="how-h">{s.h}</h3>
+            <p class="how-p">{s.p}</p>
+          </div>
+        ))}
+      </div>
+      <div class="ph-trustline">
+        <span class="ti">🛡</span>
+        <p>Every doctor on DocFriends is credential-verified before approval, and you decide which
+          cases to accept and when you’re available. Patients’ names and contact details are never
+          shown to reviewing doctors.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLOSING CTA -->
+  <section class="ph-close">
+    <div class="container">
+      <h2 class="h-display ph-close-h">Ready to review cases in your field?</h2>
+      <p class="muted">Apply in a few minutes. We’ll verify your credentials and be in touch by email.</p>
+      <div class="ph-cta center">
+        <a href="/for-physicians/apply" class="btn primary lg">Apply to join →</a>
+        <a href="/sign-in" class="btn ghost lg">Sign in</a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .container { max-width: 1080px; margin: 0 auto; padding-inline: 24px; }
+  /* hero */
+  .ph-hero { padding-block: clamp(48px, 8vw, 96px); border-bottom: 1px solid var(--line); }
+  .ph-title { font-size: clamp(38px, 6vw, 62px); line-height: 1.05; margin: 12px 0 20px; }
+  .ph-title em { color: var(--accent-deep); font-style: italic; }
+  .ph-lead { font-size: clamp(16px, 2vw, 19px); line-height: 1.65; color: var(--ink-soft); max-width: 620px; }
+  .ph-cta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 28px; }
+  .ph-cta.center { justify-content: center; }
+  .ph-trust { margin-top: 16px; }
+
+  /* why */
+  .ph-why { padding-block: clamp(44px, 6vw, 80px); }
+  .ph-h2 { font-size: clamp(26px, 3.4vw, 38px); margin: 8px 0 32px; max-width: 620px; line-height: 1.12; }
+  .why-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .why-card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); padding: 24px 22px; }
+  .why-i { font-size: 24px; display: inline-grid; place-items: center; width: 46px; height: 46px; border-radius: 12px; background: var(--accent-tint); color: var(--accent-deep); margin-bottom: 14px; }
+  .why-h { font-size: 17px; font-weight: 600; margin-bottom: 7px; }
+  .why-p { font-size: 14px; line-height: 1.6; color: var(--ink-soft); }
+
+  /* how */
+  .ph-how { padding-block: clamp(44px, 6vw, 80px); background: var(--paper-2); border-block: 1px solid var(--line); }
+  .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  .how-step { position: relative; padding-top: 8px; }
+  .how-n { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--ink); color: var(--paper); font-size: 19px; margin-bottom: 14px; }
+  .how-h { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .how-p { font-size: 14px; line-height: 1.62; color: var(--ink-soft); }
+  .ph-trustline { display: flex; gap: 14px; align-items: flex-start; margin-top: 36px; padding: 20px 22px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--paper); max-width: 760px; }
+  .ph-trustline .ti { font-size: 20px; flex-shrink: 0; }
+  .ph-trustline p { font-size: 14.5px; line-height: 1.6; color: var(--ink-soft); }
+
+  /* closing */
+  .ph-close { padding-block: clamp(48px, 7vw, 88px); text-align: center; }
+  .ph-close-h { font-size: clamp(26px, 3.6vw, 40px); margin-bottom: 12px; }
+
+  @media (max-width: 860px) { .why-grid, .how-grid { grid-template-columns: 1fr; } }
+</style>
