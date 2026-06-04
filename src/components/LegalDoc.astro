@@ -1,0 +1,51 @@
+---
+// Shared shell for the policy pages (/terms, /privacy, /refund-policy, /shipping-policy).
+// Body content is authored per-page into the default slot. The DRAFT banner + medical
+// disclaimer + bracketed placeholders are kept intact per the source copy.
+import BaseLayout from '~/layouts/BaseLayout.astro';
+
+interface Props { title: string; lastUpdated?: string; activeNav?: string; }
+const { title, lastUpdated = '[date]', activeNav } = Astro.props;
+---
+
+<BaseLayout title={`${title} — DocFriends`} description={`${title} for DocFriends.`} activeNav={activeNav}>
+  <section class="legal">
+    <div class="container-narrow">
+      <div class="legal-banner">
+        <strong>DRAFT — for legal review.</strong> These policies are starter drafts and have
+        <em>not</em> been reviewed by a lawyer. Bracketed items are placeholders to be completed before launch.
+      </div>
+      <div class="eyebrow">Policies</div>
+      <h1 class="h-display legal-title">{title}</h1>
+      <p class="faint tiny legal-updated">Last updated: {lastUpdated}</p>
+      <div class="legal-body">
+        <slot />
+      </div>
+      <p class="legal-foot faint tiny">Questions about this policy? Contact us at <a href="/contact">/contact</a>.</p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .legal { padding-block: clamp(32px, 5vw, 60px); }
+  .legal-banner { border: 1px solid var(--warn); background: var(--warn-soft); color: var(--ink); border-radius: 12px; padding: 12px 16px; font-size: 13px; line-height: 1.55; margin-bottom: 28px; }
+  .legal-title { font-size: clamp(30px, 4.5vw, 46px); margin: 10px 0 6px; }
+  .legal-updated { margin-bottom: 26px; }
+  .legal-foot { margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .legal-foot a { color: var(--accent); }
+</style>
+
+<!-- Slotted body keeps the page's scope, so its element styles must be global,
+     namespaced under .legal-body so nothing leaks elsewhere. -->
+<style is:global>
+  .legal-body { font-size: 15px; line-height: 1.7; color: var(--ink-soft); max-width: 720px; }
+  .legal-body > p.lead { font-size: 16.5px; color: var(--ink); margin-bottom: 20px; }
+  .legal-body h2 { font-family: var(--serif); font-weight: 500; font-size: 22px; color: var(--ink); margin: 30px 0 12px; }
+  .legal-body p { margin: 0 0 14px; }
+  .legal-body ol, .legal-body ul { margin: 0 0 16px; padding-left: 22px; display: flex; flex-direction: column; gap: 10px; }
+  .legal-body li { padding-left: 4px; }
+  .legal-body li strong { color: var(--ink); }
+  .legal-body a { color: var(--accent); text-underline-offset: 2px; }
+  .legal-body .disclaimer { border-left: 3px solid var(--accent); background: var(--paper-2); padding: 14px 16px; border-radius: 0 10px 10px 0; color: var(--ink); margin: 0 0 18px; }
+  .legal-body .note { font-style: italic; color: var(--ink-light); }
+</style>

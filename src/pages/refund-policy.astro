@@ -1,0 +1,17 @@
+---
+import LegalDoc from '~/components/LegalDoc.astro';
+import { SITE } from '~/lib/site';
+export const prerender = false;
+---
+
+<LegalDoc title="Refund & Cancellation Policy" activeNav="/refund-policy">
+  <p class="note">These are business decisions — confirm the specifics before publishing.</p>
+
+  <ol>
+    <li><strong>Before a doctor starts.</strong> If you cancel before any doctor has been assigned to your case, you receive a <strong>full refund</strong>.</li>
+    <li><strong>After opinions are delivered.</strong> Delivered opinions are a completed service and are generally <strong>non-refundable</strong>.</li>
+    <li><strong>If we can't deliver.</strong> If we are unable to match a suitable doctor or deliver the opinion(s) you paid for within [X] days, you receive a <strong>full refund</strong>.</li>
+    <li><strong>Partial delivery.</strong> If you paid for multiple opinions and fewer are delivered, you receive a <strong>pro-rata refund</strong> for the undelivered opinions.</li>
+    <li><strong>How to request.</strong> Email <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a> with your case reference. Approved refunds are returned to your original payment method via Razorpay, normally within <strong>5–7 business days</strong>. [Confirm timeline.]</li>
+  </ol>
+</LegalDoc>

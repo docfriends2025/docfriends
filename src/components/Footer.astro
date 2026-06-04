@@ -15,6 +15,7 @@ const year = new Date().getFullYear();
         <div class="eyebrow ink">Product</div>
         <a href="/case/start">Start a case</a>
         <a href="/pricing">Pricing</a>
+        <a href="/find-a-specialist">Find a specialist</a>
         <a href="/faqs">FAQs</a>
         <a href="/journal">Journal</a>
       </div>
@@ -25,29 +26,49 @@ const year = new Date().getFullYear();
         <a href={`mailto:${SITE.pressEmail}`}>Press</a>
       </div>
       <div class="footer-col">
+        <div class="eyebrow ink">Legal</div>
+        <a href="/terms">Terms &amp; Conditions</a>
+        <a href="/privacy">Privacy Policy</a>
+        <a href="/refund-policy">Refund &amp; Cancellation</a>
+        <a href="/shipping-policy">Shipping &amp; Delivery</a>
+      </div>
+      <div class="footer-col">
         <div class="eyebrow ink">Get in touch</div>
-        <a href={`mailto:${SITE.supportEmail}`}>{SITE.supportEmail}</a>
-        <span class="faint tiny">{SITE.office}</span>
+        <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>
+        <span class="faint tiny">{SITE.legalEntity}</span>
+        <span class="faint tiny">{SITE.city}, {SITE.region}, {SITE.country}</span>
       </div>
     </div>
   </div>
+
+  <div class="container footer-disclaimer">
+    <p class="faint tiny">{SITE.medicalDisclaimer}</p>
+  </div>
+
   <div class="container footer-base">
-    <span class="faint tiny">© {year} {SITE.name}. For informational purposes; not a substitute for emergency care.</span>
-    <span class="faint tiny">Privacy · Terms</span>
+    <span class="faint tiny">© {year} {SITE.name} · {SITE.legalEntity}.</span>
+    <span class="faint tiny footer-legal">
+      <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> ·
+      <a href="/refund-policy">Refund</a> · <a href="/shipping-policy">Shipping</a>
+    </span>
   </div>
 </footer>
 
 <style>
   .footer { border-top: 1px solid var(--line); background: var(--paper-2); margin-top: 80px; }
-  .footer-inner { display: grid; grid-template-columns: 1.4fr 2fr; gap: 48px; padding-block: 54px 36px; }
+  .footer-inner { display: grid; grid-template-columns: 1.4fr 2.2fr; gap: 48px; padding-block: 54px 32px; }
   .brand { font-family: var(--serif); font-size: 22px; display: inline-flex; align-items: center; gap: 9px; }
   .footer-tag { font-family: var(--serif); font-size: 19px; line-height: 1.3; margin-top: 14px; max-width: 320px; }
   .footer-mini { margin-top: 8px; font-size: 13px; }
-  .footer-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .footer-cols { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
   .footer-col { display: flex; flex-direction: column; gap: 10px; }
   .footer-col .eyebrow { margin-bottom: 4px; }
   .footer-col a { font-size: 13.5px; color: var(--ink-soft); }
   .footer-col a:hover { color: var(--accent); }
-  .footer-base { display: flex; justify-content: space-between; padding-block: 18px 28px; border-top: 1px solid var(--line); flex-wrap: wrap; gap: 8px; }
-  @media (max-width: 760px) { .footer-inner { grid-template-columns: 1fr; gap: 32px; } .footer-cols { grid-template-columns: 1fr 1fr; } }
+  .footer-disclaimer { padding-block: 16px; border-top: 1px solid var(--line); }
+  .footer-disclaimer p { line-height: 1.55; max-width: 880px; }
+  .footer-base { display: flex; justify-content: space-between; padding-block: 16px 28px; border-top: 1px solid var(--line); flex-wrap: wrap; gap: 8px; }
+  .footer-legal a { color: var(--ink-soft); }
+  .footer-legal a:hover { color: var(--accent); }
+  @media (max-width: 860px) { .footer-inner { grid-template-columns: 1fr; gap: 32px; } .footer-cols { grid-template-columns: 1fr 1fr; } }
 </style>

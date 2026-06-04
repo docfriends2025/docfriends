@@ -1,0 +1,25 @@
+---
+import LegalDoc from '~/components/LegalDoc.astro';
+import { SITE } from '~/lib/site';
+export const prerender = false;
+---
+
+<LegalDoc title="Privacy Policy" activeNav="/privacy">
+  <p class="lead">How DocFriends collects, uses, and protects your personal data — including health
+    information — in line with India's Digital Personal Data Protection Act, 2023 (DPDP Act).</p>
+
+  <ol>
+    <li><strong>Scope.</strong> This explains how DocFriends collects, uses, and protects your personal data, including health information, in line with India's DPDP Act, 2023.</li>
+    <li><strong>What we collect.</strong> Account details (name, email, phone); the medical information you choose to share for your case (symptoms, history, documents); payment status (payments themselves are processed by Razorpay — we do not store your full card/bank details).</li>
+    <li><strong>Why, and lawful basis.</strong> We process your data <strong>with your consent</strong> to match you with a suitable doctor, deliver your opinion(s), provide support, and meet legal obligations.</li>
+    <li><strong>Who can see your case.</strong> Doctors assigned to your case can see the clinical information needed to give an opinion. Our case-management/admin team can see your contact details to operate the service. We do not sell your data.</li>
+    <li><strong>Processors we use.</strong> Razorpay (payments), Resend (email), Cloudflare (hosting), Turso (database). Each processes data only to provide its service.</li>
+    <li><strong>Storage &amp; security.</strong> Data is stored securely with access controls and encryption in transit. [Add specifics your team can stand behind.]</li>
+    <li><strong>Retention.</strong> We keep your data only as long as needed for the service and legal requirements, then delete or anonymise it. [Set a period.]</li>
+    <li><strong>Your rights.</strong> Under the DPDP Act you may access, correct, or request deletion of your data, and withdraw consent. Contact our Grievance Officer (below) to exercise these rights.</li>
+    <li><strong>Children.</strong> The service is not directed at children except via a consenting parent/guardian.</li>
+    <li><strong>Cookies/sessions.</strong> We use a session cookie to keep you signed in.</li>
+    <li><strong>Grievance / Data Protection Officer.</strong> {SITE.grievanceOfficer} — <a href={`mailto:${SITE.grievanceEmail}`}>{SITE.grievanceEmail}</a>. We respond within [X] days.</li>
+    <li><strong>Changes.</strong> We will post updates here.</li>
+  </ol>
+</LegalDoc>

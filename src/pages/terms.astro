@@ -1,0 +1,32 @@
+---
+import LegalDoc from '~/components/LegalDoc.astro';
+import { SITE } from '~/lib/site';
+export const prerender = false;
+---
+
+<LegalDoc title="Terms & Conditions" activeNav="/terms">
+  <p class="lead">By using DocFriends or paying for a plan, you agree to these Terms.</p>
+
+  <p class="disclaimer">DocFriends provides written second opinions and specialist guidance from independent
+    doctors for informational purposes only. It is not a substitute for an in-person examination, your
+    treating doctor's advice, a formal diagnosis, or emergency care. <strong>DocFriends does not provide
+    emergency services.</strong> If you have a medical emergency, call <strong>112</strong> (or your local
+    emergency number) or go to the nearest emergency department immediately. Always consult a qualified
+    doctor before making any decision about your health or treatment.</p>
+
+  <ol>
+    <li><strong>Acceptance.</strong> By using DocFriends or paying for a plan, you agree to these Terms.</li>
+    <li><strong>Who can use it.</strong> You must be 18 or older (or use the service with a parent/guardian) and provide accurate information about yourself or the person the opinion is for.</li>
+    <li><strong>What DocFriends is.</strong> A platform that connects you with independent, verified doctors who provide written second opinions on information you submit. We offer paid plans of <strong>1, 2, or 3 written opinions</strong> (see <a href="/pricing">Pricing</a>). Opinions are <strong>advisory and informational</strong>, are based only on the information you provide, and do not create a doctor–patient treatment relationship or constitute a prescription, diagnosis, or treatment plan.</li>
+    <li><strong>Medical disclaimer.</strong> The medical disclaimer above forms part of these Terms. DocFriends is not for emergencies.</li>
+    <li><strong>Doctor independence.</strong> Opinions are the professional views of independent doctors. DocFriends facilitates and does not practise medicine or guarantee any outcome.</li>
+    <li><strong>Fees &amp; payment.</strong> Fees are shown in Indian Rupees (₹) and are charged through our payment partner, <strong>Razorpay</strong>. You authorise us (via Razorpay) to charge the plan you select.</li>
+    <li><strong>Your responsibilities.</strong> Provide complete, truthful information; do not misuse the service or submit another person's data without their consent.</li>
+    <li><strong>Privacy.</strong> Your information is handled per our <a href="/privacy">Privacy Policy</a>.</li>
+    <li><strong>Intellectual property.</strong> The site, content, and branding are owned by {SITE.legalEntity}. The written opinion you receive is for your personal use.</li>
+    <li><strong>Limitation of liability.</strong> To the maximum extent permitted by law, DocFriends and its doctors are not liable for decisions made based on an opinion; the service is provided "as is." [Lawyer to set the enforceable limitation and any cap.]</li>
+    <li><strong>Governing law.</strong> These Terms are governed by the laws of India; courts at Chennai, Tamil Nadu have jurisdiction. [Confirm.]</li>
+    <li><strong>Changes.</strong> We may update these Terms; continued use means acceptance.</li>
+    <li><strong>Contact.</strong> See <a href="/contact">Contact Us</a>.</li>
+  </ol>
+</LegalDoc>

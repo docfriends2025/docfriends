@@ -507,7 +507,7 @@ if (hasDb(env)) {
       : `<div class="expand-note">
            <div class="expand-h">We're expanding into ${esc(sp.label.toLowerCase())} care</div>
            <p>We don't have a ${esc(sp.label.toLowerCase())} available to book just yet. The guidance above still stands — and if it's urgent, please act on the safety note rather than wait.</p>
-           <a class="btn ghost sm" href="mailto:help@docfriends.com?subject=${encodeURIComponent('Interest: ' + sp.label)}&body=${encodeURIComponent("I'd like a " + sp.label + ' on DocFriends.')}">Notify me when it's available →</a>
+           <a class="btn ghost sm" href="mailto:hello@docfriends.co?subject=${encodeURIComponent('Interest: ' + sp.label)}&body=${encodeURIComponent("I'd like a " + sp.label + ' on DocFriends.')}">Notify me when it's available →</a>
          </div>`;
 
     root.querySelector<HTMLElement>('[data-reco]')!.innerHTML = `

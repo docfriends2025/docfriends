@@ -27,6 +27,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ ok: true, persisted: true });
   } catch (err) {
     console.error('contact failed', err);
-    return json({ ok: false, error: 'Could not send. Please email help@docfriends.com directly.' }, 500);
+    return json({ ok: false, error: 'Could not send. Please email hello@docfriends.co directly.' }, 500);
   }
 };

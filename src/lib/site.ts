@@ -1,14 +1,39 @@
 // ~/lib/site.ts — static content (things that don't live in the DB).
 
+// Business / contact details — single source of truth, reused in the footer, the
+// Contact page, and the policy pages. Blanks are owner-to-fill before Razorpay submission.
 export const SITE = {
   name: 'DocFriends',
+  company: 'DocFriends',
+  founder: 'Rekha Mani',                              // Founder & CEO
+  legalEntity: 'DocFriends, operated by Rekha Mani',
   domain: 'docfriends.co',
   tagline: 'A panel of doctors, at your side, within 24 hours.',
-  supportEmail: 'help@docfriends.com',
-  doctorsEmail: 'doctors@docfriends.com',
-  pressEmail: 'hello@docfriends.com',
-  office: '73 Wickham Lane, Brooklyn, NY 11215',
-  phone: '+1 (212) 555-0143',
+
+  // Contact (verified .co domain). supportEmail/press/doctors all route here.
+  contactEmail: 'hello@docfriends.co',
+  supportEmail: 'hello@docfriends.co',
+  pressEmail:   'hello@docfriends.co',
+  doctorsEmail: 'hello@docfriends.co',
+
+  // Registered business location (Chennai, Tamil Nadu). Blanks filled before launch.
+  addressLine: '',                                    // street address line
+  city:    'Chennai',
+  region:  'Tamil Nadu',
+  country: 'India',
+  pin:     '',                                        // PIN code
+  phone:   '',                                        // contact phone (Razorpay expects one)
+  gstin:   '',                                        // GSTIN / business registration, if applicable
+
+  // Grievance / Data Protection Officer (DPDP Act, 2023).
+  grievanceOfficer: 'Rekha Mani',
+  grievanceEmail:   'hello@docfriends.co',
+
+  // Short medical disclaimer surfaced site-wide (footer) and on Terms.
+  medicalDisclaimer:
+    'DocFriends provides written second opinions for informational purposes only — not a diagnosis, ' +
+    'a prescription, or a substitute for your treating doctor or emergency care. DocFriends does not ' +
+    'provide emergency services; in an emergency, call 112 (or your local emergency number).',
 };
 
 // Primary marketing nav (public pages).

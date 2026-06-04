@@ -4,12 +4,14 @@ import { SITE } from '~/lib/site';
 
 export const prerender = false;
 
-const channels = [
-  { eyebrow: 'Support',              email: SITE.supportEmail, note: 'Average reply under 4 hours · seven days a week' },
-  { eyebrow: 'Doctors — join us',    email: SITE.doctorsEmail, note: 'Hiring across 18 specialties' },
-  { eyebrow: 'Press & partnerships', email: SITE.pressEmail,   note: 'Tell us what you are working on' },
-];
 const topics = ['A question about my case', 'Pricing & billing', 'Joining as a doctor', 'Press', 'Other'];
+
+// Business details — single source of truth in SITE. Blank fields render as
+// bracketed placeholders until the owner completes them (before Razorpay submission).
+const street = SITE.addressLine || '[street address]';
+const pin = SITE.pin || '[PIN]';
+const phone = SITE.phone || '[phone]';
+const addressLine = `${street}, ${SITE.city}, ${SITE.region}, ${SITE.country} ${pin}`;
 ---
 
 <BaseLayout title="Contact — DocFriends" description="Get in touch with the DocFriends team." activeNav="/contact">
@@ -21,17 +23,25 @@ const topics = ['A question about my case', 'Pricing & billing', 'Joining as a d
         <p class="muted c-lead">For case-specific questions, <a href="/sign-in" class="ul">log in first</a> — that way we can see your file.</p>
 
         <div class="channels">
-          {channels.map((ch) => (
-            <div class="channel">
-              <div class="eyebrow ink">{ch.eyebrow}</div>
-              <a href={`mailto:${ch.email}`} class="channel-email">{ch.email}</a>
-              <div class="faint tiny">{ch.note}</div>
-            </div>
-          ))}
           <div class="channel">
-            <div class="eyebrow ink">Office</div>
-            <div class="channel-email static">{SITE.office}</div>
-            <div class="faint tiny">By appointment only</div>
+            <div class="eyebrow ink">Email</div>
+            <a href={`mailto:${SITE.contactEmail}`} class="channel-email">{SITE.contactEmail}</a>
+            <div class="faint tiny">We read every message.</div>
+          </div>
+          <div class="channel">
+            <div class="eyebrow ink">DocFriends</div>
+            <div class="channel-email static" style="font-size:18px">{SITE.legalEntity}</div>
+            <div class="faint tiny">{SITE.founder} · Founder &amp; CEO</div>
+          </div>
+          <div class="channel">
+            <div class="eyebrow ink">Registered address</div>
+            <div class="biz-line">{addressLine}</div>
+            <div class="faint tiny">Phone: {phone} · Hours: [e.g., Mon–Sat, 10:00–18:00 IST]</div>
+          </div>
+          <div class="channel">
+            <div class="eyebrow ink">Grievance / Data Protection Officer</div>
+            <div class="biz-line">{SITE.grievanceOfficer} — <a href={`mailto:${SITE.grievanceEmail}`} class="ul">{SITE.grievanceEmail}</a></div>
+            <div class="faint tiny">For privacy or data requests under the DPDP Act, 2023.</div>
           </div>
         </div>
       </div>
@@ -84,6 +94,8 @@ const topics = ['A question about my case', 'Pricing & billing', 'Joining as a d
   .channel-email { font-family: var(--serif); font-size: 21px; display: block; margin: 5px 0 4px; }
   a.channel-email:hover { color: var(--accent); }
   .channel-email.static { color: var(--ink); }
+  .biz-line { font-size: 14.5px; color: var(--ink); margin: 4px 0; line-height: 1.5; }
+  .biz-line .ul { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 
   .note-card { padding: 32px; box-shadow: 0 24px 56px -30px rgba(26,34,56,.16); }
   .note-title { font-size: 27px; }
