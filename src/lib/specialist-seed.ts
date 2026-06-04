@@ -87,9 +87,12 @@ export const CRISIS_RESOURCES = {
   immediate:
     'If you feel you might act on thoughts of harming yourself, or you are in immediate ' +
     'danger, contact your local emergency services right now.',
-  // TODO(team): insert verified, current crisis lines for every region you serve.
+  // Verified Government of India national lines (re-check periodically — helplines change).
+  // To serve other regions, add their verified lines here alongside these.
   lines: [
-    { region: 'TODO', name: 'TODO — local/national crisis line', contact: 'TODO' },
+    { region: 'India', name: 'Tele-MANAS — national mental health helpline (24/7, Govt of India)', contact: '14416 or 1-800-891-4416' },
+    { region: 'India', name: 'KIRAN mental health helpline (24/7)', contact: '1800-599-0019' },
+    { region: 'India', name: 'Emergency services', contact: '112' },
   ],
   closing: 'A trusted person, your GP, or a crisis line can help you through the next few hours.',
 };
