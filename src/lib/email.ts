@@ -126,6 +126,26 @@ If you believe this was in error or your credentials have changed, reply to this
   };
 }
 
+export function doctorInviteEmail(opts: { email: string; name?: string | null; link: string }): SendOpts {
+  return {
+    to: opts.email,
+    subject: "You're invited to join the DocFriends panel",
+    text: `Hello${opts.name ? ` ${opts.name}` : ''},
+
+The DocFriends team has invited you to join our panel of specialists.
+
+Complete your profile and set a password to activate your doctor account:
+
+  ${opts.link}
+
+This invite link expires in 7 days and can only be used once. Your license details are seen only by our review team, never by patients.
+
+If you weren't expecting this, you can ignore this email — no account is active until you complete the steps above.
+
+— The DocFriends team`,
+  };
+}
+
 export function existingAccountEmail(opts: { email: string; signInLink: string; resetLink: string }): SendOpts {
   return {
     to: opts.email,

@@ -1,26 +1,36 @@
 ---
-// /admin/doctors — active roster + pending applications. Admin-role guarded by middleware.
+// /admin/doctors — active roster + pending applications + invited (awaiting completion).
+// Admin-role guarded by middleware. Admins can also invite a doctor by email from here.
 import PortalShell from '~/components/PortalShell.astro';
 import { getEnv, getDb } from '~/lib/db';
+import { getSpecialties } from '~/lib/content';
 import { formatDate, initialsFrom } from '~/lib/format';
 
 export const prerender = false;
 const env = getEnv(Astro.locals);
 const user = Astro.locals.user!;
 
-const res = await getDb(env).execute(`
-  SELECT d.id, d.name, d.initials, d.hospital, d.location, d.years_practice, d.rating, d.active,
-         d.application_status, d.applied_at, s.name spec_name
-  FROM doctors d LEFT JOIN specialties s ON s.slug = d.specialty_slug
-  ORDER BY d.applied_at DESC, d.name`);
+const [res, specialties] = await Promise.all([
+  getDb(env).execute(`
+    SELECT d.id, d.name, d.initials, d.hospital, d.location, d.years_practice, d.rating, d.active,
+           d.application_status, d.applied_at, d.invited_at, s.name spec_name, u.email user_email
+    FROM doctors d LEFT JOIN specialties s ON s.slug = d.specialty_slug
+    LEFT JOIN users u ON u.id = d.user_id
+    ORDER BY COALESCE(d.applied_at, d.invited_at) DESC, d.name`),
+  getSpecialties(env),
+]);
 
 const rows = res.rows.map((r) => ({
   id: String(r.id), name: String(r.name), initials: r.initials ? String(r.initials) : initialsFrom(String(r.name)),
   hospital: r.hospital ? String(r.hospital) : null, years: r.years_practice != null ? Number(r.years_practice) : null,
   rating: r.rating != null ? Number(r.rating) : 0, active: !!Number(r.active),
   status: r.application_status ? String(r.application_status) : 'pending',
-  appliedAt: r.applied_at != null ? Number(r.applied_at) : null, spec: r.spec_name ? String(r.spec_name) : null,
+  appliedAt: r.applied_at != null ? Number(r.applied_at) : null,
+  invitedAt: r.invited_at != null ? Number(r.invited_at) : null,
+  spec: r.spec_name ? String(r.spec_name) : null,
+  email: r.user_email ? String(r.user_email) : null,
 }));
+const invited = rows.filter((r) => r.status === 'invited');
 const pending = rows.filter((r) => r.status === 'pending');
 const active = rows.filter((r) => r.active && r.status === 'approved');
 const rejected = rows.filter((r) => r.status === 'rejected');
@@ -31,6 +41,46 @@ const rejected = rows.filter((r) => r.status === 'rejected');
     <div><div class="eyebrow">Network</div><h1>Doctors</h1></div>
     <span class="who"><span class="ava">{initialsFrom(user.name, user.email)}</span> {user.name ?? user.email}</span>
   </div>
+
+  <!-- Invite a doctor -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="sec-head"><h2>Invite a doctor</h2></div>
+    <p class="muted" style="font-size:13.5px;margin:-4px 0 14px">Send a known specialist a private link to set a password and complete their profile. They become active without going through the public application.</p>
+    <form data-invite-form class="inv-form">
+      <div class="inv-grid">
+        <div><label class="field-label" for="iv-email">Email <span class="opt">· required</span></label><input id="iv-email" name="email" type="email" class="spec-select" placeholder="doctor@hospital.org" required /></div>
+        <div><label class="field-label" for="iv-name">Name <span class="opt">(optional)</span></label><input id="iv-name" name="name" class="spec-select" maxlength="120" placeholder="Dr. Jane Okafor" /></div>
+        <div><label class="field-label" for="iv-spec">Specialty <span class="opt">(optional, pre-fills)</span></label>
+          <select id="iv-spec" name="specialty" class="spec-select">
+            <option value="">— none —</option>
+            {specialties.map((s) => <option value={s.slug}>{s.name}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:14px">
+        <button class="btn primary" data-invite-submit>Send invite →</button>
+        <span class="inv-msg" data-invite-msg hidden></span>
+      </div>
+    </form>
+  </div>
+
+  {invited.length > 0 && (
+    <div class="card" style="margin-bottom:20px">
+      <div class="sec-head"><h2>Invited — awaiting completion</h2><span class="chip accent">{invited.length}</span></div>
+      {invited.map((d) => (
+        <div class="rowline">
+          <span class="ava" style="width:34px;height:34px">{d.initials}</span>
+          <div>
+            <div class="t">{d.name}</div>
+            <div class="sub">{[d.email, d.spec, 'invite sent'].filter(Boolean).join(' · ')}{d.invitedAt ? ` ${formatDate(d.invitedAt)}` : ''}</div>
+          </div>
+          <span class="chip accent">invited</span>
+          {d.email && <button class="btn ghost sm" data-resend-email={d.email}>Re-send</button>}
+          <a class="btn ghost sm" href={`/admin/doctors/${d.id}`}>View →</a>
+        </div>
+      ))}
+    </div>
+  )}
 
   <div class="card" style="margin-bottom:20px">
     <div class="sec-head">
@@ -83,3 +133,49 @@ const rejected = rows.filter((r) => r.status === 'rejected');
     </div>
   )}
 </PortalShell>
+
+<style>
+  .inv-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 14px; }
+  .inv-msg { font-size: 13px; }
+  .inv-msg.ok { color: var(--success); }
+  .inv-msg.bad { color: var(--danger); }
+  @media (max-width: 720px) { .inv-grid { grid-template-columns: 1fr; } }
+</style>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('[data-invite-form]');
+  if (form) {
+    const msg = form.querySelector<HTMLElement>('[data-invite-msg]')!;
+    const btn = form.querySelector<HTMLButtonElement>('[data-invite-submit]')!;
+    const show = (text: string, ok: boolean) => { msg.hidden = false; msg.textContent = text; msg.className = `inv-msg ${ok ? 'ok' : 'bad'}`; };
+
+    async function invite(payload: Record<string, string>): Promise<void> {
+      const res = await fetch('/api/admin/doctor/invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const d = await res.json() as { ok?: boolean; error?: string; status?: string; duplicate?: boolean; resent?: boolean; doctorId?: string };
+      if (!res.ok || !d.ok) throw new Error(d.error || 'Could not send the invite.');
+      if (d.duplicate) show(`That email already has a doctor record (${d.status}). Opening it…`, true);
+      else if (d.resent) show('Invite re-sent.', true);
+      else show('Invite sent ✓', true);
+      setTimeout(() => location.reload(), 900);
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.hidden = true; btn.disabled = true;
+      const fd = new FormData(form);
+      const payload: Record<string, string> = {};
+      for (const [k, v] of fd.entries()) { const s = String(v).trim(); if (s) payload[k] = s; }
+      try { await invite(payload); } catch (err) { show(err instanceof Error ? err.message : 'Error', false); btn.disabled = false; }
+    });
+
+    // Re-send keys off the invited row's email; the API finds the existing 'invited' record
+    // and re-mints + re-sends the link (no duplicate row).
+    document.querySelectorAll<HTMLButtonElement>('[data-resend-email]').forEach((b) => {
+      b.addEventListener('click', async () => {
+        const email = b.dataset.resendEmail!;
+        b.disabled = true; const label = b.textContent; b.textContent = 'Sending…';
+        try { await invite({ email }); } catch (err) { show(err instanceof Error ? err.message : 'Error', false); b.disabled = false; b.textContent = label; }
+      });
+    });
+  }
+</script>

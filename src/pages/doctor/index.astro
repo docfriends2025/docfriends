@@ -63,7 +63,13 @@ const pay = (c: number | null) => (c != null ? `$${Math.round(c / 100)} on submi
   </div>
 
   {!doctor ? (
-    app && app.status === 'pending' ? (
+    app && app.status === 'invited' ? (
+      <div class="card" style="max-width:620px">
+        <div class="eyebrow ink">Invitation pending</div>
+        <h2 style="font-family:var(--serif);font-size:23px;margin:6px 0 10px">Finish setting up your account</h2>
+        <p class="muted">You've been invited to the DocFriends panel, {app.name}, but your account isn't active yet. Open the invitation link we emailed you to set a password and complete your profile. You don't have access to any cases until that's done.</p>
+      </div>
+    ) : app && app.status === 'pending' ? (
       <div class="card" style="max-width:620px">
         <div class="eyebrow ink">Application received</div>
         <h2 style="font-family:var(--serif);font-size:23px;margin:6px 0 10px">Your application is under review</h2>

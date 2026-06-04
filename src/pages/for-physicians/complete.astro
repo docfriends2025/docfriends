@@ -1,0 +1,155 @@
+---
+// /for-physicians/complete?token=… — an invited doctor sets a password + completes their
+// profile. The GET only PEEKS the invite token (never consumes it) so a refresh still works;
+// the token is consumed by POST /api/physician/complete. Email is locked to the invite.
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { getEnv, getDb } from '~/lib/db';
+import { peekToken } from '~/lib/auth';
+import { getSpecialties } from '~/lib/content';
+
+export const prerender = false;
+
+const env = getEnv(Astro.locals);
+const token = Astro.url.searchParams.get('token') ?? '';
+const peek = await peekToken(env, token, ['doctor_invite']);
+
+let email = '';
+let prefill: Record<string, string> = {};
+let specialties: { slug: string; name: string }[] = [];
+
+if (peek.ok) {
+  email = peek.email;
+  specialties = await getSpecialties(env);
+  // Pre-fill from the doctors row the admin created with the invite.
+  const r = await getDb(env).execute({
+    sql: `SELECT d.name, d.specialty_slug, d.subspecialty, d.hospital, d.location, d.years_practice, d.bio,
+                 d.license_number, d.license_authority, d.registry_id, d.credential_note
+          FROM doctors d JOIN users u ON u.id = d.user_id
+          WHERE u.email = ? ORDER BY d.created_at DESC LIMIT 1`,
+    args: [email],
+  });
+  const d = r.rows[0];
+  if (d) {
+    const g = (k: string) => (d[k] != null && String(d[k]).trim() ? String(d[k]) : '');
+    prefill = {
+      name: g('name'), specialty: g('specialty_slug'), subspecialty: g('subspecialty'),
+      hospital: g('hospital'), location: g('location'), years: g('years_practice'), bio: g('bio'),
+      license_number: g('license_number'), license_authority: g('license_authority'),
+      registry_id: g('registry_id'), credential_note: g('credential_note'),
+    };
+  }
+}
+---
+
+<BaseLayout title="Complete your DocFriends profile" description="Finish setting up your DocFriends doctor account." activeNav="/sign-in">
+  <section class="apply">
+    <div class="container-narrow">
+      <header class="ap-head">
+        <div class="eyebrow">For physicians · invitation</div>
+        <h1 class="h-display ap-title">Complete your profile</h1>
+        <p class="ap-lead muted">You've been invited to join the DocFriends panel. Set a password and confirm your details to activate your account. Your license details are seen only by our review team, never by patients.</p>
+      </header>
+
+      {!peek.ok ? (
+        <div class="ap-card">
+          <div class="alert error">{peek.reason}</div>
+          <a href="/sign-in" class="btn primary lg block" style="margin-top:16px">Go to sign in →</a>
+        </div>
+      ) : (
+        <>
+          <div class="ap-card" data-card-default>
+            <form data-complete-form>
+              <input type="hidden" name="token" value={token} />
+              <div class="grp">Your account</div>
+              <label class="field-label" for="cp-email">Email</label>
+              <input id="cp-email" class="input-box" type="email" value={email} disabled readonly />
+              <p class="faint tiny" style="margin:-6px 0 4px">This invite is tied to your email and can't be changed here.</p>
+              <label class="field-label" for="cp-name">Full name</label>
+              <input id="cp-name" name="name" class="input-box" placeholder="Dr. Jane Okafor" autocomplete="name" maxlength="120" value={prefill.name} required />
+              <label class="field-label" for="cp-pw">Password <span class="opt">· at least 8 characters</span></label>
+              <input id="cp-pw" name="password" type="password" class="input-box" placeholder="Create a password" autocomplete="new-password" minlength="8" required />
+              <label class="field-label" for="cp-pw2">Confirm password</label>
+              <input id="cp-pw2" name="confirm" type="password" class="input-box" placeholder="Re-enter password" autocomplete="new-password" minlength="8" required />
+
+              <div class="grp">Professional profile</div>
+              <label class="field-label" for="cp-spec">Specialty</label>
+              <select id="cp-spec" name="specialty" class="input-box" required>
+                <option value="">Choose your specialty…</option>
+                {specialties.map((s) => <option value={s.slug} selected={s.slug === prefill.specialty}>{s.name}</option>)}
+              </select>
+              <div class="two">
+                <div><label class="field-label" for="cp-sub">Subspecialty <span class="opt">(optional)</span></label><input id="cp-sub" name="subspecialty" class="input-box" maxlength="80" value={prefill.subspecialty} placeholder="e.g. Interventional" /></div>
+                <div><label class="field-label" for="cp-years">Years in practice</label><input id="cp-years" name="years" type="number" min="0" max="80" class="input-box" value={prefill.years} placeholder="12" /></div>
+              </div>
+              <div class="two">
+                <div><label class="field-label" for="cp-hosp">Hospital / clinic</label><input id="cp-hosp" name="hospital" class="input-box" maxlength="120" value={prefill.hospital} placeholder="NYU Langone" /></div>
+                <div><label class="field-label" for="cp-loc">Location</label><input id="cp-loc" name="location" class="input-box" maxlength="120" value={prefill.location} placeholder="New York, US" /></div>
+              </div>
+              <label class="field-label" for="cp-bio">Short bio <span class="opt">(optional)</span></label>
+              <textarea id="cp-bio" name="bio" class="input-box" rows="3" maxlength="1000" placeholder="A sentence or two on your background and approach.">{prefill.bio}</textarea>
+
+              <div class="grp">Verification <span class="grp-note faint">· seen only by our review team</span></div>
+              <div class="two">
+                <div><label class="field-label" for="cp-lic">License / registration number</label><input id="cp-lic" name="license_number" class="input-box" maxlength="80" value={prefill.license_number} required /></div>
+                <div><label class="field-label" for="cp-auth">Issuing authority</label><input id="cp-auth" name="license_authority" class="input-box" maxlength="120" value={prefill.license_authority} placeholder="Council / board / state / country" required /></div>
+              </div>
+              <label class="field-label" for="cp-reg">Registry ID <span class="opt">(optional, e.g. NPI)</span></label>
+              <input id="cp-reg" name="registry_id" class="input-box" maxlength="80" value={prefill.registry_id} />
+              <label class="field-label" for="cp-note">Anything else for the reviewers? <span class="opt">(optional)</span></label>
+              <textarea id="cp-note" name="credential_note" class="input-box" rows="2" maxlength="1000">{prefill.credential_note}</textarea>
+
+              <button type="submit" class="btn primary lg block" style="margin-top:22px" data-submit>
+                <span class="l-default">Activate my account →</span>
+                <span class="l-loading" hidden>Activating…</span>
+              </button>
+              <div class="alert error" data-form-error hidden style="margin-top:14px"></div>
+            </form>
+          </div>
+        </>
+      )}
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .apply { padding-block: clamp(28px, 5vw, 56px); }
+  .ap-head { max-width: 620px; margin: 0 auto 28px; text-align: center; }
+  .ap-title { font-size: clamp(32px, 5vw, 44px); margin: 10px 0 12px; }
+  .ap-lead { font-size: 15px; line-height: 1.6; }
+  .ap-card { max-width: 600px; margin: 0 auto; background: var(--paper); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 30px 30px; box-shadow: 0 24px 56px -26px rgba(26,34,56,.16); position: relative; }
+  .ap-card::before { content: ''; position: absolute; inset: -1px -1px auto; height: 4px; background: var(--accent); border-radius: var(--radius) var(--radius) 0 0; }
+  .grp { font-family: var(--serif); font-size: 18px; margin: 22px 0 6px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .grp:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+  .grp-note { font-family: var(--sans); font-size: 12px; font-weight: 400; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  select.input-box { cursor: pointer; }
+  input[disabled] { opacity: .7; cursor: not-allowed; }
+  @media (max-width: 560px) { .two { grid-template-columns: 1fr; } }
+</style>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('[data-complete-form]');
+  if (form) {
+    const errorEl = form.querySelector<HTMLElement>('[data-form-error]')!;
+    const submit = form.querySelector<HTMLButtonElement>('[data-submit]')!;
+    const lDefault = submit.querySelector<HTMLElement>('.l-default')!;
+    const lLoading = submit.querySelector<HTMLElement>('.l-loading')!;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.hidden = true;
+      const fd = new FormData(form);
+      const password = String(fd.get('password') || '');
+      if (password !== String(fd.get('confirm') || '')) { errorEl.hidden = false; errorEl.textContent = 'Passwords do not match.'; return; }
+      submit.disabled = true; lDefault.hidden = true; lLoading.hidden = false;
+      const payload: Record<string, string> = {};
+      for (const [k, v] of fd.entries()) { if (k !== 'confirm') payload[k] = String(v).trim(); }
+      try {
+        const res = await fetch('/api/physician/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await res.json() as { ok?: boolean; error?: string; redirect?: string };
+        if (res.ok && data.ok && data.redirect) { window.location.href = data.redirect; return; }
+        throw new Error(data.error || 'Could not complete your profile.');
+      } catch (err) { errorEl.hidden = false; errorEl.textContent = err instanceof Error ? err.message : 'Network error.'; submit.disabled = false; lDefault.hidden = false; lLoading.hidden = true; }
+    });
+  }
+</script>

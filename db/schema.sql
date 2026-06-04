@@ -58,11 +58,13 @@ CREATE TABLE IF NOT EXISTS doctors (
   license_authority  TEXT,                  -- council/board/state/country (admin-only)
   registry_id        TEXT,                  -- optional, e.g. NPI (admin-only)
   credential_note    TEXT,                  -- optional free text (admin-only)
-  application_status TEXT NOT NULL DEFAULT 'pending', -- pending | approved | rejected
+  application_status TEXT NOT NULL DEFAULT 'pending', -- invited | pending | approved | rejected
   applied_at         INTEGER,
   reviewed_by        TEXT,
   reviewed_at        INTEGER,
   review_notes       TEXT,
+  invited_by         TEXT,                  -- admin user id who sent the invite (invited flow)
+  invited_at         INTEGER,
   created_at      INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_doctors_specialty ON doctors(specialty_slug);
@@ -265,7 +267,7 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
   client_ip     TEXT,
   user_agent    TEXT,
   created_at    INTEGER NOT NULL,
-  purpose       TEXT NOT NULL DEFAULT 'login' -- login | verify | reset
+  purpose       TEXT NOT NULL DEFAULT 'login' -- login | verify | reset | doctor_invite
 );
 CREATE INDEX IF NOT EXISTS idx_tokens_email ON auth_tokens(email);
 

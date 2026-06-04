@@ -59,7 +59,7 @@ function rowToUser(row: Record<string, unknown>): User {
 }
 
 // ─── magic links ─────────────────────────────────────────────────────
-export type TokenPurpose = 'login' | 'verify' | 'reset';
+export type TokenPurpose = 'login' | 'verify' | 'reset' | 'doctor_invite';
 
 export async function createMagicLink(
   env: Env,
@@ -76,6 +76,27 @@ export async function createMagicLink(
     args: [await sha256(token), cleanEmail, opts.nextUrl ?? null, now() + (opts.ttlMs ?? MAGIC_TTL_MS), opts.clientIp ?? null, opts.userAgent ?? null, now(), opts.purpose ?? 'login'],
   });
   return { token, email: cleanEmail };
+}
+
+/** Validate a token WITHOUT consuming it — for token-gated pages that must render a form
+ *  on GET (e.g. reset-password, the doctor-invite completion page) before the user submits.
+ *  Returns the email so the page can pre-fill / lock it. Never marks used_at. */
+export async function peekToken(
+  env: Env,
+  token: string,
+  expectedPurposes: TokenPurpose[] = ['login', 'verify']
+): Promise<{ ok: true; email: string; nextUrl: string | null } | { ok: false; reason: string }> {
+  if (!token || token.length < 16) return { ok: false, reason: 'Invalid link.' };
+  const res = await getDb(env).execute({
+    sql: 'SELECT email, next_url, expires_at, used_at, purpose FROM auth_tokens WHERE token_hash = ?',
+    args: [await sha256(token)],
+  });
+  const row = res.rows[0];
+  if (!row) return { ok: false, reason: 'This link is invalid or has been replaced.' };
+  if (!expectedPurposes.includes((row.purpose ? String(row.purpose) : 'login') as TokenPurpose)) return { ok: false, reason: 'This link is not valid for this action.' };
+  if (row.used_at != null) return { ok: false, reason: 'This link has already been used.' };
+  if (Number(row.expires_at) < now()) return { ok: false, reason: 'This link has expired. Request a new one.' };
+  return { ok: true, email: String(row.email), nextUrl: row.next_url ? String(row.next_url) : null };
 }
 
 export async function consumeMagicLink(
