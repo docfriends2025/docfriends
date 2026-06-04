@@ -19,7 +19,8 @@ let c: Record<string, unknown> | undefined;
 let assignStatus = '', offeredAt: number | null = null;
 let attachments: string[] = [];
 let questions: string[] = [];
-let opinion: { verdict: string; diagnosisReview: string; nextSteps: string; answers: string[]; redFlags: string; status: string } | null = null;
+let opinion: { verdict: string; diagnosisReview: string; nextSteps: string; answers: string[]; redFlags: string; status: string; availableTeleconsult: boolean } | null = null;
+let consultRequested = false; // a consult was requested for this case+doctor (existence only — never contact/identity)
 
 if (!doctor) {
   notAllowed = 'No active doctor profile is linked to this account.';
@@ -39,15 +40,18 @@ if (!doctor) {
     questions = questionsOf(c.questions_json ? String(c.questions_json) : null);
     const at = await db.execute({ sql: 'SELECT file_name FROM case_attachments WHERE case_id = ? ORDER BY created_at', args: [id!] });
     attachments = at.rows.map((x) => String(x.file_name));
-    const op = await db.execute({ sql: 'SELECT verdict, diagnosis_review, next_steps, answers_json, red_flags, status FROM opinions WHERE case_id = ? AND doctor_id = ?', args: [id!, doctor.id] });
+    const op = await db.execute({ sql: 'SELECT verdict, diagnosis_review, next_steps, answers_json, red_flags, available_teleconsult, status FROM opinions WHERE case_id = ? AND doctor_id = ?', args: [id!, doctor.id] });
     if (op.rows[0]) {
       const o = op.rows[0] as Record<string, unknown>;
       opinion = {
         verdict: o.verdict ? String(o.verdict) : '', diagnosisReview: o.diagnosis_review ? String(o.diagnosis_review) : '',
         nextSteps: o.next_steps ? String(o.next_steps) : '', answers: parseJSON<string[]>(o.answers_json ? String(o.answers_json) : null, []),
-        redFlags: o.red_flags ? String(o.red_flags) : '', status: String(o.status),
+        redFlags: o.red_flags ? String(o.red_flags) : '', status: String(o.status), availableTeleconsult: !!Number(o.available_teleconsult),
       };
     }
+    // Existence only — the doctor NEVER sees the patient's contact/identity for a consult.
+    const tc = await db.execute({ sql: 'SELECT 1 FROM teleconsults WHERE case_id = ? AND doctor_id = ?', args: [id!, doctor.id] });
+    consultRequested = tc.rows.length > 0;
   }
 }
 
@@ -114,7 +118,9 @@ const submitted = opinion?.status === 'submitted' || assignStatus === 'submitted
             ))}
         </div>
         <div class="op-field"><label><span class="op-num">5</span>When to escalate · red flags</label><textarea class="op-input" data-f="redFlags" placeholder="Symptoms that warrant urgent care…" style="min-height:48px">{opinion?.redFlags ?? ''}</textarea></div>
-        <div style="display:flex;gap:10px;margin-top:6px">
+        <label style="display:flex;align-items:flex-start;gap:9px;margin-top:6px;font-size:14px;cursor:pointer"><input type="checkbox" data-consult checked={opinion?.availableTeleconsult ?? false} style="margin-top:3px" /><span>I'm available for a brief follow-up consult on this case <span class="faint">· optional</span></span></label>
+        {consultRequested && <div class="chip ok" style="margin:10px 0 0">A follow-up consult has been requested for this case — the team will arrange it.</div>}
+        <div style="display:flex;gap:10px;margin-top:16px">
           <button class="btn ghost" data-save>Save draft</button>
           <button class="btn primary" data-submit style="flex:1;justify-content:center">Submit opinion →</button>
         </div>
@@ -131,6 +137,7 @@ const submitted = opinion?.status === 'submitted' || assignStatus === 'submitted
     const caseId = grid.dataset.caseId!;
     const val = (f: string) => (grid.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[data-f="${f}"]`)?.value ?? '').trim();
     const answers = () => Array.from(grid.querySelectorAll<HTMLTextAreaElement>('[data-ans]')).map((t) => t.value.trim());
+    const consultBox = grid.querySelector<HTMLInputElement>('[data-consult]');
     const toast = grid.querySelector<HTMLElement>('[data-toast]')!;
     const err = grid.querySelector<HTMLElement>('[data-err]')!;
     const saveBtn = grid.querySelector<HTMLButtonElement>('[data-save]')!;
@@ -138,7 +145,7 @@ const submitted = opinion?.status === 'submitted' || assignStatus === 'submitted
 
     async function send(submit: boolean) {
       err.hidden = true; toast.classList.remove('show');
-      const payload = { caseId, submit, verdict: val('verdict'), diagnosisReview: val('diagnosisReview'), nextSteps: val('nextSteps'), redFlags: val('redFlags'), answers: answers() };
+      const payload = { caseId, submit, verdict: val('verdict'), diagnosisReview: val('diagnosisReview'), nextSteps: val('nextSteps'), redFlags: val('redFlags'), answers: answers(), availableTeleconsult: consultBox?.checked === true };
       const btn = submit ? submitBtn : saveBtn;
       const label = btn.textContent; btn.disabled = true; btn.textContent = submit ? 'Submitting…' : 'Saving…';
       try {

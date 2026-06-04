@@ -18,7 +18,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const doctor = await doctorForUser(env, locals.user.id);
   if (!doctor) return json({ ok: false, error: 'No doctor profile linked.' }, 403);
 
-  let body: { caseId?: unknown; submit?: unknown; verdict?: unknown; diagnosisReview?: unknown; nextSteps?: unknown; redFlags?: unknown; answers?: unknown };
+  let body: { caseId?: unknown; submit?: unknown; verdict?: unknown; diagnosisReview?: unknown; nextSteps?: unknown; redFlags?: unknown; answers?: unknown; availableTeleconsult?: unknown };
   try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid request.' }, 400); }
   const caseId = typeof body.caseId === 'string' ? body.caseId.trim().slice(0, 40) : null;
   const submit = body.submit === true;
@@ -29,6 +29,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const nextSteps = str(body.nextSteps, 4000);
   const redFlags = str(body.redFlags, 2000);
   const answers = Array.isArray(body.answers) ? body.answers.map((a) => str(a, 2000)).slice(0, 10) : [];
+  const availableTeleconsult = body.availableTeleconsult === true ? 1 : 0;
   if (submit && !verdict) return json({ ok: false, error: 'Add a one-line verdict before submitting.' }, 400);
 
   const db = getDb(env);
@@ -40,13 +41,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const status = submit ? 'submitted' : 'draft';
   const submittedAt = submit ? ts : null;
   await db.execute({
-    sql: `INSERT INTO opinions (id, case_id, doctor_id, verdict, diagnosis_review, next_steps, answers_json, red_flags, status, created_at, updated_at, submitted_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    sql: `INSERT INTO opinions (id, case_id, doctor_id, verdict, diagnosis_review, next_steps, answers_json, red_flags, available_teleconsult, status, created_at, updated_at, submitted_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(case_id, doctor_id) DO UPDATE SET
             verdict=excluded.verdict, diagnosis_review=excluded.diagnosis_review, next_steps=excluded.next_steps,
-            answers_json=excluded.answers_json, red_flags=excluded.red_flags, status=excluded.status,
-            updated_at=excluded.updated_at, submitted_at=COALESCE(excluded.submitted_at, opinions.submitted_at)`,
-    args: [ulid(), caseId, doctor.id, verdict, diagnosisReview, nextSteps, JSON.stringify(answers), redFlags, status, ts, ts, submittedAt],
+            answers_json=excluded.answers_json, red_flags=excluded.red_flags, available_teleconsult=excluded.available_teleconsult,
+            status=excluded.status, updated_at=excluded.updated_at, submitted_at=COALESCE(excluded.submitted_at, opinions.submitted_at)`,
+    args: [ulid(), caseId, doctor.id, verdict, diagnosisReview, nextSteps, JSON.stringify(answers), redFlags, availableTeleconsult, status, ts, ts, submittedAt],
   });
 
   // Advance the doctor's assignment row.

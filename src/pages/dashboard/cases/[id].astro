@@ -28,7 +28,7 @@ const c = cr.rows[0] as Record<string, unknown> | undefined;
 const owned = c && c.user_id && String(c.user_id) === user.id;
 if (!owned) Astro.response.status = 404;
 
-interface Op { name: string; initials: string; spec: string | null; hospital: string | null; years: number | null; rating: number; verdict: string; diagnosisReview: string; nextSteps: string; redFlags: string; answers: string[]; }
+interface Op { doctorId: string; name: string; initials: string; spec: string | null; hospital: string | null; years: number | null; rating: number; verdict: string; diagnosisReview: string; nextSteps: string; redFlags: string; answers: string[]; consultOffered: boolean; consultStatus: string | null; }
 let ops: Op[] = [];
 let questions: string[] = [];
 let opinionCount = 0;
@@ -37,7 +37,7 @@ if (owned) {
   opinionCount = c!.opinion_count != null ? Number(c!.opinion_count) : 0;
   questions = questionsOf(c!.questions_json ? String(c!.questions_json) : null);
   const or = await db.execute({
-    sql: `SELECT o.verdict, o.diagnosis_review, o.next_steps, o.answers_json, o.red_flags, o.submitted_at,
+    sql: `SELECT o.doctor_id, o.verdict, o.diagnosis_review, o.next_steps, o.answers_json, o.red_flags, o.available_teleconsult, o.submitted_at,
                  d.name, d.initials, d.hospital, d.years_practice, d.rating, sd.name doc_spec
           FROM opinions o
           JOIN doctors d ON d.id = o.doctor_id
@@ -46,15 +46,21 @@ if (owned) {
           ORDER BY d.rating DESC, o.submitted_at`,
     args: [id!],
   });
+  // Any consult requests this client already made on this case (status keyed by doctor).
+  const tcRes = await db.execute({ sql: 'SELECT doctor_id, status FROM teleconsults WHERE case_id = ?', args: [id!] });
+  const consultByDoctor = new Map(tcRes.rows.map((r) => [String(r.doctor_id), String(r.status)]));
   ops = or.rows.map((r) => ({
+    doctorId: String(r.doctor_id),
     name: String(r.name), initials: r.initials ? String(r.initials) : initialsFrom(String(r.name)),
     spec: r.doc_spec ? String(r.doc_spec) : null, hospital: r.hospital ? String(r.hospital) : null,
     years: r.years_practice != null ? Number(r.years_practice) : null, rating: r.rating != null ? Number(r.rating) : 0,
     verdict: r.verdict ? String(r.verdict) : '', diagnosisReview: r.diagnosis_review ? String(r.diagnosis_review) : '',
     nextSteps: r.next_steps ? String(r.next_steps) : '', redFlags: r.red_flags ? String(r.red_flags) : '',
     answers: parseJSON<string[]>(r.answers_json ? String(r.answers_json) : null, []),
+    consultOffered: !!Number(r.available_teleconsult), consultStatus: consultByDoctor.get(String(r.doctor_id)) ?? null,
   }));
 }
+const userPhone = (Astro.locals.user?.phone ?? '').slice(0, 40);
 
 const delivered = owned && String(c!.status) === 'delivered';
 const hasOpinions = ops.length > 0;
@@ -145,6 +151,28 @@ const docMeta = (o: Op) => [o.spec, o.hospital, o.years ? `${o.years} yrs` : nul
                   {o.diagnosisReview && <div class="blk"><div class="bl">Diagnosis review</div><div class="bt">{o.diagnosisReview}</div></div>}
                   {o.nextSteps && <div class="blk"><div class="bl">Recommended next steps</div><div class="bt">{o.nextSteps}</div></div>}
                   {o.redFlags && <div class="redflag"><b>When to seek urgent care:</b> {o.redFlags}</div>}
+                  {o.consultOffered && (
+                    <div class="consult no-print" data-consult-block data-doctor-id={o.doctorId} data-case-id={String(c!.id)}>
+                      {o.consultStatus ? (
+                        <div class="consult-state">✓ Consult {o.consultStatus}. {o.consultStatus === 'requested' ? "We'll call you to arrange a time." : o.consultStatus === 'confirmed' ? 'Being scheduled — keep your phone handy.' : ''}</div>
+                      ) : (
+                        <div class="consult-book">
+                          <div class="consult-head">📞 {o.name} is available for a brief follow-up consult.</div>
+                          <button type="button" class="btn ghost sm" data-consult-open>Book a consult →</button>
+                          <form data-consult-form hidden style="margin-top:12px">
+                            <label class="cl">Your phone</label>
+                            <input class="cf-in" data-cf-phone type="tel" value={userPhone} placeholder="+1 555 0143" />
+                            <label class="cl">Preferred times <span class="faint">· optional</span></label>
+                            <input class="cf-in" data-cf-times placeholder="e.g. weekday evenings" />
+                            <label class="cl">Anything to add? <span class="faint">· optional</span></label>
+                            <textarea class="cf-in" data-cf-note rows="2"></textarea>
+                            <button type="submit" class="btn primary sm" data-cf-submit style="margin-top:10px">Request consult</button>
+                            <div class="cf-err" data-cf-err hidden></div>
+                          </form>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -216,6 +244,13 @@ const docMeta = (o: Op) => [o.spec, o.hospital, o.years ? `${o.years} yrs` : nul
   .op-body .bt { font-size: 14.5px; line-height: 1.6; }
   .op-body .redflag { margin-top: 16px; padding: 13px 15px; border-radius: 10px; background: var(--danger-soft); color: var(--danger); font-size: 13.5px; line-height: 1.55; }
 
+  .consult { margin-top: 16px; padding: 14px 16px; border-radius: 10px; background: var(--accent-tint); border: 1px solid var(--accent-soft); }
+  .consult-head { font-size: 13.5px; font-weight: 600; margin-bottom: 10px; }
+  .consult-state { font-size: 13.5px; color: var(--accent-deep); }
+  .consult .cl { display: block; font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-light); margin: 10px 0 4px; }
+  .consult .cf-in { width: 100%; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--paper); font: inherit; font-size: 14px; padding: 9px 11px; color: var(--ink); }
+  .consult .cf-err { margin-top: 8px; font-size: 13px; color: var(--danger); }
+
   .foot { margin-top: 34px; padding-top: 24px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
   .back { margin-top: 22px; font-size: 13.5px; }
 
@@ -241,4 +276,25 @@ const docMeta = (o: Op) => [o.spec, o.hospital, o.years ? `${o.years} yrs` : nul
   document.querySelectorAll('[data-op-toggle]').forEach((b) =>
     b.addEventListener('click', () => b.closest('.op')?.classList.toggle('open')));
   document.querySelector('[data-print]')?.addEventListener('click', () => window.print());
+
+  document.querySelectorAll<HTMLElement>('[data-consult-block]').forEach((block) => {
+    const caseId = block.dataset.caseId!, doctorId = block.dataset.doctorId!;
+    const form = block.querySelector<HTMLFormElement>('[data-consult-form]');
+    block.querySelector<HTMLButtonElement>('[data-consult-open]')?.addEventListener('click', () => { if (form) form.hidden = !form.hidden; });
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = form.querySelector<HTMLElement>('[data-cf-err]')!;
+      const btn = form.querySelector<HTMLButtonElement>('[data-cf-submit]')!;
+      const phone = form.querySelector<HTMLInputElement>('[data-cf-phone]')!.value.trim();
+      const times = form.querySelector<HTMLInputElement>('[data-cf-times]')!.value.trim();
+      const note = form.querySelector<HTMLTextAreaElement>('[data-cf-note]')!.value.trim();
+      err.hidden = true; btn.disabled = true; btn.textContent = 'Requesting…';
+      try {
+        const res = await fetch('/api/consult/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ caseId, doctorId, contactPhone: phone, preferredTimes: times, note }) });
+        const d = await res.json() as { ok?: boolean; error?: string; status?: string };
+        if (!res.ok || !d.ok) throw new Error(d.error || 'Could not request a consult.');
+        block.innerHTML = `<div class="consult-state">✓ Consult ${d.status || 'requested'}. We'll call you to arrange a time.</div>`;
+      } catch (e2) { err.hidden = false; err.textContent = e2 instanceof Error ? e2.message : 'Network error.'; btn.disabled = false; btn.textContent = 'Request consult'; }
+    });
+  });
 </script>

@@ -173,6 +173,12 @@ CREATE TABLE IF NOT EXISTS teleconsults (
   user_id     TEXT REFERENCES users(id) ON DELETE SET NULL,
   scheduled_at INTEGER,
   status      TEXT NOT NULL DEFAULT 'requested',  -- requested | confirmed | done | cancelled
+  contact_phone   TEXT,                  -- patient callback number (admin-only)
+  preferred_times TEXT,                  -- patient's preferred windows / note
+  patient_note    TEXT,
+  admin_note      TEXT,                  -- internal scheduling note
+  confirmed_at    INTEGER,
+  updated_at      INTEGER,
   created_at  INTEGER NOT NULL
 );
 

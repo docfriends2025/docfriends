@@ -48,6 +48,8 @@ const attention = attnRes.rows.map((r) => {
 }).filter((c) => c.needsCategory || c.needsAssignment);
 
 const who = `${user.name ?? user.email} · admin`;
+
+const openConsults = Number((await db.execute("SELECT COUNT(*) n FROM teleconsults WHERE status IN ('requested','confirmed')")).rows[0].n);
 ---
 
 <PortalShell role="admin" active="overview" title="Overview — DocFriends admin">
@@ -55,6 +57,13 @@ const who = `${user.name ?? user.email} · admin`;
     <div><div class="eyebrow">Admin dashboard</div><h1>Overview</h1></div>
     <span class="who"><span class="ava">{initialsFrom(user.name, user.email)}</span> {who}</span>
   </div>
+
+  {openConsults > 0 && (
+    <a href="/admin/consults" class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;text-decoration:none;color:inherit">
+      <span>☎ <b>{openConsults}</b> follow-up consult request{openConsults > 1 ? 's' : ''} to arrange</span>
+      <span class="chip warn">Open the queue →</span>
+    </a>
+  )}
 
   <div class="kpis">
     <div class="kpi"><div class="k-l">Cases active</div><div class="k-n">{activeCount}</div><div class="k-s">{attention.length} awaiting your action</div></div>

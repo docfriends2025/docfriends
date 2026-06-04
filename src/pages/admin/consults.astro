@@ -1,0 +1,105 @@
+---
+// /admin/consults — manual follow-up consult queue. Admin-role guarded by middleware.
+// Patient contact + identity are shown here (admin-only); the team places calls manually.
+import PortalShell from '~/components/PortalShell.astro';
+import { getEnv, getDb } from '~/lib/db';
+import { formatDate, initialsFrom } from '~/lib/format';
+
+export const prerender = false;
+const env = getEnv(Astro.locals);
+const user = Astro.locals.user!;
+
+const res = await getDb(env).execute(`
+  SELECT t.id, t.status, t.contact_phone, t.preferred_times, t.patient_note, t.admin_note, t.scheduled_at, t.created_at,
+         c.ref, d.name doctor_name, u.name patient_name, u.email patient_email
+  FROM teleconsults t
+  LEFT JOIN cases c ON c.id = t.case_id
+  LEFT JOIN doctors d ON d.id = t.doctor_id
+  LEFT JOIN users u ON u.id = t.user_id
+  ORDER BY CASE t.status WHEN 'requested' THEN 0 WHEN 'confirmed' THEN 1 WHEN 'done' THEN 2 ELSE 3 END, t.created_at DESC`);
+
+const rows = res.rows.map((r) => ({
+  id: String(r.id), status: String(r.status), phone: r.contact_phone ? String(r.contact_phone) : null,
+  times: r.preferred_times ? String(r.preferred_times) : null, note: r.patient_note ? String(r.patient_note) : null,
+  adminNote: r.admin_note ? String(r.admin_note) : null, scheduledAt: r.scheduled_at != null ? Number(r.scheduled_at) : null,
+  ref: r.ref ? String(r.ref) : '—', doctor: r.doctor_name ? String(r.doctor_name) : '—',
+  patient: r.patient_name ? String(r.patient_name) : (r.patient_email ? String(r.patient_email) : 'Unknown'),
+  email: r.patient_email ? String(r.patient_email) : null,
+}));
+const openCount = rows.filter((r) => r.status === 'requested' || r.status === 'confirmed').length;
+const chipClass = (s: string) => (s === 'done' ? 'ok' : s === 'requested' ? 'warn' : s === 'confirmed' ? 'accent' : '');
+---
+
+<PortalShell role="admin" active="consults" title="Consults — DocFriends admin">
+  <div class="topbar">
+    <div><div class="eyebrow">Follow-up calls</div><h1>Consult requests</h1></div>
+    <span class="who"><span class="ava">{initialsFrom(user.name, user.email)}</span> {user.name ?? user.email}</span>
+  </div>
+
+  <div class="card">
+    <div class="sec-head"><h2>Queue</h2>{openCount > 0 && <span class="chip warn">{openCount} open</span>}</div>
+    {rows.length === 0
+      ? <div class="empty">No consult requests yet.</div>
+      : rows.map((r) => (
+        <div class="consult-row" data-consult-id={r.id}>
+          <div class="cr-l">
+            <div class="cr-top"><span class="mono">#{r.ref}</span> · <b>{r.doctor}</b> <span class:list={['chip', chipClass(r.status)]}>{r.status}</span></div>
+            <div class="cr-detail">
+              <span class="lab">Patient</span> {r.patient}
+              {r.phone && <> · <span class="lab">Phone</span> <a href={`tel:${r.phone}`}>{r.phone}</a></>}
+            </div>
+            {r.times && <div class="cr-detail"><span class="lab">Prefers</span> {r.times}</div>}
+            {r.note && <div class="cr-detail"><span class="lab">Note</span> <em>“{r.note}”</em></div>}
+            {r.scheduledAt && <div class="cr-detail"><span class="lab">Scheduled</span> {formatDate(r.scheduledAt)}</div>}
+            {r.adminNote && <div class="cr-detail faint"><span class="lab">Internal</span> {r.adminNote}</div>}
+          </div>
+          {(r.status === 'requested' || r.status === 'confirmed') && (
+            <div class="cr-actions">
+              <input type="datetime-local" class="cf-in" data-sched title="Scheduled time (optional)" />
+              <input type="text" class="cf-in" data-anote placeholder="Internal note (optional)" />
+              <div class="cr-btns">
+                <button class="btn accent sm" data-act="confirm">Confirm</button>
+                <button class="btn ghost sm" data-act="done">Done</button>
+                <button class="btn danger-ghost sm" data-act="cancel">Cancel</button>
+              </div>
+              <div class="cf-err" data-err hidden></div>
+            </div>
+          )}
+        </div>
+      ))}
+  </div>
+</PortalShell>
+
+<style>
+  .consult-row { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: start; padding: 16px 4px; border-top: 1px solid var(--line); }
+  .consult-row:first-of-type { border-top: 0; }
+  .cr-top { font-size: 14px; margin-bottom: 6px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+  .cr-detail { font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
+  .cr-detail .lab { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-light); margin-right: 4px; }
+  .cr-actions { display: flex; flex-direction: column; gap: 8px; min-width: 230px; }
+  .cr-actions .cf-in { border: 1px solid var(--line-strong); border-radius: 8px; background: var(--paper); font: inherit; font-size: 13px; padding: 7px 10px; color: var(--ink); }
+  .cr-btns { display: flex; gap: 8px; }
+  .cf-err { font-size: 12.5px; color: var(--danger); }
+  @media (max-width: 760px) { .consult-row { grid-template-columns: 1fr; } .cr-actions { min-width: 0; } }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-consult-id]').forEach((row) => {
+    const consultId = row.dataset.consultId!;
+    const err = row.querySelector<HTMLElement>('[data-err]');
+    const sched = row.querySelector<HTMLInputElement>('[data-sched]');
+    const anote = row.querySelector<HTMLInputElement>('[data-anote]');
+    row.querySelectorAll<HTMLButtonElement>('[data-act]').forEach((btn) => btn.addEventListener('click', async () => {
+      if (err) err.hidden = true;
+      const action = btn.dataset.act!;
+      const scheduledAt = sched?.value ? new Date(sched.value).getTime() : undefined;
+      row.querySelectorAll<HTMLButtonElement>('[data-act]').forEach((b) => (b.disabled = true));
+      try {
+        const res = await fetch('/api/admin/consult/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ consultId, action, scheduledAt, adminNote: anote?.value.trim() || undefined }) });
+        const d = await res.json() as { ok?: boolean; error?: string };
+        if (!res.ok || !d.ok) throw new Error(d.error || 'Could not update.');
+        location.reload();
+      } catch (e) { if (err) { err.hidden = false; err.textContent = e instanceof Error ? e.message : 'Error'; } row.querySelectorAll<HTMLButtonElement>('[data-act]').forEach((b) => (b.disabled = false)); }
+    }));
+  });
+</script>
