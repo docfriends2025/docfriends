@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import '~/styles/academic.css';
+import '~/styles/motion.css';
 import AcademicNav from '~/components/academic/AcademicNav.astro';
 import { ACADEMIC_SERVICES } from '~/lib/academic';
 
@@ -13,10 +14,10 @@ const featured = ACADEMIC_SERVICES.filter((s) => ['manuscript-editing', 'thesis-
 
   <section class="ac-hero">
     <div class="container">
-      <div class="eyebrow">Academic & scientific writing</div>
-      <h1 class="h-display ac-title">Academic writing support, <em>done with you, not for you.</em></h1>
-      <p class="ac-lead">Editing, thesis support, journal submission and scientific writing for researchers. You stay the author. We make the manuscript clear, compliant and ready to submit.</p>
-      <div class="ac-cta-row">
+      <div class="eyebrow" data-reveal>Academic & scientific writing</div>
+      <h1 class="h-display ac-title" data-reveal>Academic writing support, <em>done with you, not for you.</em></h1>
+      <p class="ac-lead" data-reveal>Editing, thesis support, journal submission and scientific writing for researchers. You stay the author. We make the manuscript clear, compliant and ready to submit.</p>
+      <div class="ac-cta-row" data-reveal>
         <a href="/contact" class="btn primary lg">Get a quote →</a>
         <a href="/academic/pricing" class="btn ghost lg">See pricing</a>
       </div>
@@ -25,35 +26,39 @@ const featured = ACADEMIC_SERVICES.filter((s) => ['manuscript-editing', 'thesis-
 
   <section class="ac-section">
     <div class="container">
-      <div class="eyebrow">Most requested</div>
+      <div class="eyebrow" data-reveal>Most requested</div>
       <div class="ac-cards">
         {featured.map((s) => (
-          <article class="ac-card">
+          <article class="ac-card" data-reveal>
             <h2 class="h-display ac-card-title">{s.name}</h2>
             <p class="muted">{s.desc}</p>
             <a href={`/contact?service=${s.slug}`} class="ac-ask">Ask about this →</a>
           </article>
         ))}
       </div>
-      <p class="ac-more"><a href="/academic/services" class="ul">All nine services →</a></p>
+      <p class="ac-more" data-reveal><a href="/academic/services" class="ul">All nine services →</a></p>
     </div>
   </section>
 
   <section class="ac-trust">
     <div class="container ac-trust-grid">
-      <div><strong>You stay the author.</strong><span class="muted">Your name on the paper, your data, your approval.</span></div>
-      <div><strong>Scopus and Web of Science.</strong><span class="muted">Journal shortlists use indexed journals only.</span></div>
-      <div><strong>Confidential files.</strong><span class="muted">Your manuscript is shared only with the team working on it.</span></div>
+      <div data-reveal><strong>You stay the author.</strong><span class="muted">Your name on the paper, your data, your approval.</span></div>
+      <div data-reveal><strong>Scopus and Web of Science.</strong><span class="muted">Journal shortlists use indexed journals only.</span></div>
+      <div data-reveal><strong>Confidential files.</strong><span class="muted">Your manuscript is shared only with the team working on it.</span></div>
     </div>
   </section>
 
   <section class="ac-section">
-    <div class="container ac-final">
+    <div class="container ac-final" data-reveal>
       <h2 class="h-display ac-final-title">Send us your file. <em>We reply with a quote.</em></h2>
       <a href="/contact" class="btn primary lg">Get a quote →</a>
     </div>
   </section>
 </BaseLayout>
+
+<script>
+  import '~/scripts/motion';
+</script>
 
 <style>
   .ac-hero { padding-block: clamp(48px, 7vw, 92px) clamp(36px, 5vw, 60px); }

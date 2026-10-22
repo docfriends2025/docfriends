@@ -1,0 +1,49 @@
+/* ~/styles/motion.css — scroll-reveal for the homepage and /academic pages only.
+   Elements opt in with [data-reveal]; ~/scripts/motion.ts adds .is-revealed.
+   Only opacity + transform animate (GPU-composited).
+
+   Visible by default. The hidden start state applies only when scripting is on
+   and the visitor has not asked for reduced motion, so JS-off and reduced-motion
+   visitors always see the content. */
+
+:root {
+  --motion-dur: 480ms;
+  --motion-ease: cubic-bezier(.22, 1, .36, 1);
+  --motion-shift: 16px;
+  --motion-stagger: 60ms;
+  --motion-failsafe: 2500ms;
+}
+
+@keyframes df-reveal-failsafe {
+  to { opacity: 1; transform: none; }
+}
+
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  [data-reveal] {
+    opacity: 0;
+    transform: translate3d(0, var(--motion-shift), 0);
+    backface-visibility: hidden;
+    will-change: transform, opacity;
+    transition:
+      opacity var(--motion-dur) var(--motion-ease) calc(var(--reveal-i, 0) * var(--motion-stagger)),
+      transform var(--motion-dur) var(--motion-ease) calc(var(--reveal-i, 0) * var(--motion-stagger));
+    /* If the script never runs (blocked, errored), reveal anyway. */
+    animation: df-reveal-failsafe 1ms linear var(--motion-failsafe) forwards;
+  }
+
+  [data-reveal].is-revealed {
+    opacity: 1;
+    transform: none;
+    will-change: auto;
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+    animation: none;
+  }
+}

@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import '~/styles/academic.css';
+import '~/styles/motion.css';
 import AcademicNav from '~/components/academic/AcademicNav.astro';
 import { ACADEMIC_SERVICES } from '~/lib/academic';
 ---
@@ -10,16 +11,16 @@ import { ACADEMIC_SERVICES } from '~/lib/academic';
 
   <section class="ac-hero">
     <div class="container">
-      <div class="eyebrow">Services</div>
-      <h1 class="h-display ac-title">Nine services. <em>One author.</em></h1>
-      <p class="ac-lead">Pick the stage you are at. Every service keeps you as the author of your work.</p>
+      <div class="eyebrow" data-reveal>Services</div>
+      <h1 class="h-display ac-title" data-reveal>Nine services. <em>One author.</em></h1>
+      <p class="ac-lead" data-reveal>Pick the stage you are at. Every service keeps you as the author of your work.</p>
     </div>
   </section>
 
   <section class="ac-section">
     <div class="container ac-grid">
       {ACADEMIC_SERVICES.map((s, i) => (
-        <article class="ac-card">
+        <article class="ac-card" data-reveal>
           <span class="mono faint tiny">{String(i + 1).padStart(2, '0')}</span>
           <h2 class="h-display ac-card-title">{s.name}</h2>
           <p class="muted">{s.desc}</p>
@@ -29,6 +30,10 @@ import { ACADEMIC_SERVICES } from '~/lib/academic';
     </div>
   </section>
 </BaseLayout>
+
+<script>
+  import '~/scripts/motion';
+</script>
 
 <style>
   .ac-hero { padding-block: clamp(48px, 7vw, 80px) 24px; }

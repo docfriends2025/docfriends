@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import '~/styles/academic.css';
+import '~/styles/motion.css';
 import AcademicNav from '~/components/academic/AcademicNav.astro';
 import { ACADEMIC_PACKAGES, PRICING_FOOTNOTE, formatRupees } from '~/lib/academic';
 ---
@@ -10,9 +11,9 @@ import { ACADEMIC_PACKAGES, PRICING_FOOTNOTE, formatRupees } from '~/lib/academi
 
   <section class="ac-hero">
     <div class="container">
-      <div class="eyebrow">Pricing</div>
-      <h1 class="h-display ac-title">Priced to the file, <em>not a template.</em></h1>
-      <p class="ac-lead">Each price is a starting point. We confirm the final quote after we read your file.</p>
+      <div class="eyebrow" data-reveal>Pricing</div>
+      <h1 class="h-display ac-title" data-reveal>Priced to the file, <em>not a template.</em></h1>
+      <p class="ac-lead" data-reveal>Each price is a starting point. We confirm the final quote after we read your file.</p>
     </div>
   </section>
 
@@ -20,7 +21,7 @@ import { ACADEMIC_PACKAGES, PRICING_FOOTNOTE, formatRupees } from '~/lib/academi
     <div class="container">
       <div class="ac-pgrid">
         {ACADEMIC_PACKAGES.map((p) => (
-          <article class:list={['ac-pcard', { featured: p.featured }]}>
+          <article class:list={['ac-pcard', { featured: p.featured }]} data-reveal>
             <div class="ac-pcard-body">
               {p.featured && <span class="chip solid">Most chosen</span>}
               <h2 class="h-display ac-pname">{p.title}</h2>
@@ -36,10 +37,14 @@ import { ACADEMIC_PACKAGES, PRICING_FOOTNOTE, formatRupees } from '~/lib/academi
           </article>
         ))}
       </div>
-      <p class="ac-footnote muted">{PRICING_FOOTNOTE}</p>
+      <p class="ac-footnote muted" data-reveal>{PRICING_FOOTNOTE}</p>
     </div>
   </section>
 </BaseLayout>
+
+<script>
+  import '~/scripts/motion';
+</script>
 
 <style>
   .ac-hero { padding-block: clamp(48px, 7vw, 80px) 24px; }

@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import '~/styles/academic.css';
+import '~/styles/motion.css';
 import AcademicNav from '~/components/academic/AcademicNav.astro';
 import { ACADEMIC_FAQS } from '~/lib/academic';
 ---
@@ -10,8 +11,8 @@ import { ACADEMIC_FAQS } from '~/lib/academic';
 
   <section class="ac-hero">
     <div class="container">
-      <div class="eyebrow">FAQs</div>
-      <h1 class="h-display ac-title">Questions, <em>answered plainly.</em></h1>
+      <div class="eyebrow" data-reveal>FAQs</div>
+      <h1 class="h-display ac-title" data-reveal>Questions, <em>answered plainly.</em></h1>
     </div>
   </section>
 
@@ -19,16 +20,20 @@ import { ACADEMIC_FAQS } from '~/lib/academic';
     <div class="container-narrow">
       <div class="accordion">
         {ACADEMIC_FAQS.map((f, i) => (
-          <details class="acc-item" open={i === 0}>
+          <details class="acc-item" open={i === 0} data-reveal>
             <summary><span>{f.q}</span><span class="acc-mark" aria-hidden="true"></span></summary>
             <div class="acc-body"><p>{f.a}</p></div>
           </details>
         ))}
       </div>
-      <p class="muted ac-more">Still have a question? <a href="/contact" class="ul">Ask us directly →</a></p>
+      <p class="muted ac-more" data-reveal>Still have a question? <a href="/contact" class="ul">Ask us directly →</a></p>
     </div>
   </section>
 </BaseLayout>
+
+<script>
+  import '~/scripts/motion';
+</script>
 
 <style>
   .ac-hero { padding-block: clamp(48px, 7vw, 80px) 24px; }

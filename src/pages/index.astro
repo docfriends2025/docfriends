@@ -2,6 +2,7 @@
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import { getEnv } from '~/lib/db';
 import { getSpecialties } from '~/lib/content';
+import '~/styles/motion.css';
 
 export const prerender = false;
 
@@ -22,18 +23,18 @@ const preselect = preselectRaw && specialties.some((s) => s.slug === preselectRa
     <div class="container hero-grid">
       <!-- LEFT: editorial pitch -->
       <div class="hero-left">
-        <div class="eyebrow">— Specialist second opinions</div>
-        <h1 class="h-display hero-title">
+        <div class="eyebrow" data-reveal>— Specialist second opinions</div>
+        <h1 class="h-display hero-title" data-reveal>
           A panel of doctors,<br />
           <em>at your side,</em><br />
           within 24 hours.
         </h1>
-        <p class="hero-lead">
+        <p class="hero-lead" data-reveal>
           Upload your reports. Share what worries you. Board-certified specialists
           read your case in full and write back — clearly, kindly, without the rush.
         </p>
 
-        <div class="stats">
+        <div class="stats" data-reveal>
           {stats.map((s) => (
             <div class="stat">
               <div class="stat-n h-display">{s.n}</div>
@@ -42,7 +43,7 @@ const preselect = preselectRaw && specialties.some((s) => s.slug === preselectRa
           ))}
         </div>
 
-        <figure class="quote-card">
+        <figure class="quote-card" data-reveal>
           <figcaption class="eyebrow"><span class="q-mark">❝</span> What clients say</figcaption>
           <blockquote>"Helped me avoid a surgery I didn't need."</blockquote>
           <cite class="faint tiny">— Priya, 34 · Mumbai · Cardiology</cite>
@@ -51,7 +52,7 @@ const preselect = preselectRaw && specialties.some((s) => s.slug === preselectRa
 
       <!-- RIGHT: in-page case intake (step 1 of the flow) -->
       <div class="hero-right">
-        <form class="case-form card" data-intake-form>
+        <form class="case-form card" data-intake-form data-reveal>
           <div class="cf-head">
             <div class="eyebrow">Start your case · free until you choose a panel</div>
             <span class="chip">Step 1 of 3</span>
@@ -160,6 +161,8 @@ const preselect = preselectRaw && specialties.some((s) => s.slug === preselectRa
 </style>
 
 <script>
+  import '~/scripts/motion';
+
   const form = document.querySelector<HTMLFormElement>('[data-intake-form]');
   const drop = document.querySelector<HTMLLabelElement>('[data-drop]');
   const filesInput = document.querySelector<HTMLInputElement>('[data-files]');
