@@ -45,20 +45,20 @@ export const ACADEMIC_PACKAGES = [
     note: 'Case reports. Research papers and reviews quoted after we see the data.' },
 ];
 
-export const ACADEMIC_FAQS = [
+const ALL_FAQS = [
   // REVIEW: confirm editor background before publishing
   { q: "Who does the writing and editing?",
-    a: "Each file is matched to an editor with experience in your field." },
+    a: "Each file is matched to an editor with experience in your field.", published: false },
   // REVIEW: confirm data handling and file deletion before publishing
   { q: "Is my manuscript confidential?",
-    a: "Yes. Your files are used only for your project and are shared only with the team working on it. We delete your files on request." },
+    a: "Yes. Your files are used only for your project and are shared only with the team working on it. We delete your files on request.", published: false },
   { q: "Do you write the paper for me?",
     a: "No. We edit, support and advise. The ideas, data and conclusions must be yours, and you approve every draft." },
   { q: "Do you guarantee my paper will be accepted?",
     a: "No. Acceptance is the journal's decision. We make sure your manuscript meets the journal's guidelines and reads clearly, and we only recommend Scopus and Web of Science indexed journals." },
   // REVIEW: editing sentence is a draft
   { q: "Will my university or journal know you helped?",
-    a: "You stay the author. For scientific writing, the support is acknowledged in the manuscript, as medical journals require. For editing, we send a short summary of the changes made, so you can see what changed and why." },
+    a: "You stay the author. For scientific writing, the support is acknowledged in the manuscript, as medical journals require. For editing, we send a short summary of the changes made, so you can see what changed and why.", published: false },
   { q: "What is your turnaround time?",
     a: "It depends on length and scope. We confirm the delivery date in your quote, before you pay." },
   { q: "Will my name be on the paper as a ghostwriter?",
@@ -70,6 +70,8 @@ export const ACADEMIC_FAQS = [
   { q: "How do I start?",
     a: "Send your file and deadline. We reply with a quote." },
 ];
+
+export const ACADEMIC_FAQS = ALL_FAQS.filter((f) => f.published !== false);
 
 export const PRICING_FOOTNOTE =
   'Prices in INR and exclude GST where applicable. Clients outside India pay the INR amount by international transfer.';
