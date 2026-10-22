@@ -1,0 +1,167 @@
+---
+// Service page body, ported from the approved "DocFriends Writing Service Template".
+// Structure and class names are unchanged; {{placeholders}} are props, {{#list}} blocks are
+// maps and {{^x}} blocks are conditionals. The site's BaseLayout supplies the header and footer.
+// Styles: ~/styles/service-template.css, imported by the page (src/pages/academic/[slug].astro).
+import type {
+  ServiceScopeItem, ServiceStep, ServiceChartRow, ServiceFaq, ServiceRelatedCard,
+} from '~/lib/academic-services';
+
+interface Props {
+  title: string;
+  title_short: string;
+  promise: string;
+  quote_url: string;
+  scope_intro?: string;
+  scope_items: ServiceScopeItem[];
+  steps: ServiceStep[];
+  chart_rows: ServiceChartRow[];
+  chart_note?: string;
+  featured?: boolean;
+  price_from: number | null;
+  price_body?: string;
+  price_note: string;
+  faqs: ServiceFaq[];
+  related: ServiceRelatedCard[];
+}
+const {
+  title, title_short, promise, quote_url, scope_intro, scope_items, steps, chart_rows,
+  chart_note, featured = false, price_from, price_body, price_note, faqs, related,
+} = Astro.props;
+
+const money = (n: number) => n.toLocaleString('en-IN');
+const pad2 = (i: number) => String(i + 1).padStart(2, '0');
+---
+
+<div class="svc">
+
+  {/* 1 HERO */}
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap">
+      <nav class="crumb" aria-label="Breadcrumb">
+        <a href="/academic">Academic writing</a><span aria-hidden="true">/</span>
+        <a href="/academic/services">Services</a><span aria-hidden="true">/</span>
+        <span aria-current="page">{title}</span>
+      </nav>
+      <h1 id="hero-title">{title}</h1>
+      <p class="promise">{promise}</p>
+      <div class="actions">
+        <a class="btn btn-solid" href={quote_url}>Get a quote</a>
+        <a class="btn btn-line" href="#pricing">See pricing</a>
+      </div>
+    </div>
+  </section>
+
+  {/* 2 WHAT THIS COVERS — 4 to 6 items */}
+  <section class="sec" aria-labelledby="scope-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="label">Scope</span>
+        <h2 id="scope-title">What this covers</h2>
+        {scope_intro && <p>{scope_intro}</p>}
+      </div>
+      <div class="scope">
+        {scope_items.map((item, i) => (
+          <article class="scope-item"><span class="n">{pad2(i)}</span><h3>{item.heading}</h3><p>{item.body}</p></article>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  {/* 3 HOW IT WORKS — exactly 4 steps */}
+  <section class="sec" aria-labelledby="steps-title">
+    <div class="wrap">
+      <div class="sec-head"><span class="label">Process</span><h2 id="steps-title">How it works</h2></div>
+      <ol class="steps">
+        {steps.map((step, i) => (
+          <li class="step">
+            <span class="dot" aria-hidden="true">{i + 1}</span>
+            <h3>{step.heading}</h3>
+            <p>{step.body}</p>
+            {step.meta && <span class="meta">{step.meta}</span>}
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+
+  {/* 4 COMPARISON CHART — values from the content file only; omitted when a service has no pricing text */}
+  {chart_rows.length > 0 && (
+    <section class="sec" aria-labelledby="chart-title">
+      <div class="wrap">
+        <div class="sec-head"><span class="label">Compare</span><h2 id="chart-title">What each tier includes</h2></div>
+        <div class="chart-scroll" role="region" aria-labelledby="chart-title" tabindex="0">
+          <table class="chart">
+            <thead>
+              <tr>
+                <th scope="col">Included</th>
+                <th scope="col" class:list={['tier', { featured }]}>
+                  {title}
+                  <span class="tier-price">{price_from ? `from ₹${money(price_from)}` : 'Quote on request'}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {chart_rows.map((row) => (
+                <tr><th scope="row">{row.feature}</th><td class={row.state}>{row.value}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {/* state = "yes" | "no" | "" (plain text value) */}
+        {chart_note && <p class="chart-note">{chart_note}</p>}
+      </div>
+    </section>
+  )}
+
+  {/* 5 PRICING */}
+  <section class="sec" id="pricing" aria-labelledby="price-title">
+    <div class="wrap">
+      <div class="price-card">
+        <div>
+          <span class="label">Pricing</span>
+          <h2 id="price-title">{title}</h2>
+          {price_body && <p class="body">{price_body}</p>}
+        </div>
+        <div class="price">
+          {price_from
+            ? (<><span class="from">From</span><span class="amount">₹{money(price_from)}</span></>)
+            : (<span class="amount">Quote on request</span>)}
+          <p class="note">{price_note}</p>
+          <p class="final">Final quote after we see your file</p>
+          <a class="btn btn-solid" href={quote_url}>Get a quote</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {/* 6 FAQ — 4 to 6 items */}
+  <section class="sec" aria-labelledby="faq-title">
+    <div class="wrap">
+      <div class="sec-head"><span class="label">FAQs</span><h2 id="faq-title">Questions about {title_short}</h2></div>
+      <div class="faq">
+        {faqs.map((f) => (
+          <details><summary>{f.question}</summary><div class="a"><p>{f.answer}</p></div></details>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  {/* 7 RELATED SERVICES — exactly 3 */}
+  <section class="sec" aria-labelledby="rel-title">
+    <div class="wrap">
+      <div class="sec-head"><span class="label">Related</span><h2 id="rel-title">Related services</h2></div>
+      <div class="related">
+        {related.map((r) => (
+          <a class="rel" href={r.url}>
+            <span class="label">{r.price_from ? `From ₹${money(r.price_from)}` : 'Quote on request'}</span>
+            <h3>{r.title}</h3>
+            <p>{r.summary}</p>
+            <span class="go">View service →</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+</div>

@@ -1,0 +1,47 @@
+---
+// /academic/<slug> — one page per service, rendered from the approved service template.
+// Prerendered at build time via getStaticPaths. Content: ~/lib/academic-services.ts.
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import AcademicNav from '~/components/academic/AcademicNav.astro';
+import ServiceTemplate from '~/components/academic/ServiceTemplate.astro';
+import '~/styles/service-template.css';
+import { ACADEMIC_SERVICES } from '~/lib/academic';
+import { serviceBySlug } from '~/lib/academic-services';
+
+export const prerender = true;
+
+export function getStaticPaths() {
+  return ACADEMIC_SERVICES.map((s) => ({ params: { slug: s.slug } }));
+}
+
+const { slug } = Astro.params;
+const service = serviceBySlug(slug!);
+if (!service) return Astro.redirect('/academic/services');
+
+const related = service.related.map((rs) => {
+  const r = serviceBySlug(rs)!;
+  return { url: `/academic/${r.slug}`, title: r.title, summary: r.promise, price_from: r.price_from };
+});
+---
+
+<BaseLayout
+  title={`${service.title} — Academic writing — DocFriends`}
+  description={service.promise}
+  activeNav="/academic"
+>
+  <AcademicNav />
+  <ServiceTemplate
+    title={service.title}
+    title_short={service.title_short}
+    promise={service.promise}
+    quote_url={service.quote_url}
+    scope_items={service.scope_items}
+    steps={service.steps}
+    chart_rows={service.chart_rows}
+    featured={service.featured}
+    price_from={service.price_from}
+    price_note={service.price_note}
+    faqs={service.faqs}
+    related={related}
+  />
+</BaseLayout>

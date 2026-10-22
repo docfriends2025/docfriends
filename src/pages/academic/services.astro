@@ -24,7 +24,7 @@ import { ACADEMIC_SERVICES } from '~/lib/academic';
           <span class="mono faint tiny">{String(i + 1).padStart(2, '0')}</span>
           <h2 class="h-display ac-card-title">{s.name}</h2>
           <p class="muted">{s.desc}</p>
-          <a href={`/contact?service=${s.slug}`} class="ac-ask">Ask about this →</a>
+          <a href={`/academic/${s.slug}`} class="ac-ask">Ask about this →</a>
         </article>
       ))}
     </div>
