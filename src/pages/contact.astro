@@ -1,10 +1,24 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import { SITE } from '~/lib/site';
+import { ACADEMIC_SERVICES } from '~/lib/academic';
 
 export const prerender = false;
 
-const topics = ['A question about my case', 'Pricing & billing', 'Joining as a doctor', 'Press', 'Other'];
+const baseTopics = ['A question about my case', 'Pricing & billing', 'Joining as a doctor', 'Press', 'Other'];
+
+// ACADEMIC: quote requests via /contact?service=<academic slug> or ?service=general.
+// With no (or an unrecognised) service parameter the page renders exactly as before.
+const serviceParam = Astro.url.searchParams.get('service');
+const quoteService = serviceParam ? ACADEMIC_SERVICES.find((s) => s.slug === serviceParam) : undefined;
+const quoteFor = serviceParam === 'general' ? 'general' : quoteService?.name;       // used in the topic value
+const quoteTitle = serviceParam === 'general' ? 'academic writing' : quoteService?.name; // used in the heading
+const isQuote = Boolean(quoteFor);
+// The API truncates topic to 80 characters, so cap it here too.
+const quoteTopic = `Academic quote: ${quoteFor ?? ''}`.slice(0, 80);
+const topics = isQuote
+  ? [{ label: 'Academic quote', value: quoteTopic }, ...baseTopics.map((t) => ({ label: t, value: t }))]
+  : baseTopics.map((t) => ({ label: t, value: t }));
 
 // Business details — single source of truth in SITE. Blank fields render as
 // bracketed placeholders until the owner completes them (before Razorpay submission).
@@ -19,8 +33,17 @@ const addressLine = `${street}, ${SITE.city}, ${SITE.region}, ${SITE.country} ${
     <div class="container contact-grid">
       <div class="contact-left">
         <div class="eyebrow">Get in touch</div>
-        <h1 class="h-display c-title">Say hi <em>(or help).</em></h1>
-        <p class="muted c-lead">For case-specific questions, <a href="/sign-in" class="ul">log in first</a> — that way we can see your file.</p>
+        {isQuote ? (
+          <>
+            <h1 class="h-display c-title">Quote request: <em>{quoteTitle}</em></h1>
+            <p class="muted c-lead">Tell us about your file. We confirm the final quote after we read it.</p>
+          </>
+        ) : (
+          <>
+            <h1 class="h-display c-title">Say hi <em>(or help).</em></h1>
+            <p class="muted c-lead">For case-specific questions, <a href="/sign-in" class="ul">log in first</a> — that way we can see your file.</p>
+          </>
+        )}
 
         <div class="channels">
           <div class="channel">
@@ -60,10 +83,10 @@ const addressLine = `${street}, ${SITE.city}, ${SITE.region}, ${SITE.country} ${
           <label class="field-label" style="margin-top:18px">Topic</label>
           <div class="topic-pills" data-topics>
             {topics.map((t, i) => (
-              <button type="button" class:list={['pill', { active: i === 0 }]} data-topic={t}>{t}</button>
+              <button type="button" class:list={['pill', { active: i === 0 }]} data-topic={t.value}>{t.label}</button>
             ))}
           </div>
-          <input type="hidden" name="topic" value={topics[0]} data-topic-input />
+          <input type="hidden" name="topic" value={topics[0].value} data-topic-input />
 
           <label class="field-label" for="ct-msg" style="margin-top:18px">Message</label>
           <textarea id="ct-msg" name="message" class="input-box" rows="5" placeholder="Type here…" required></textarea>

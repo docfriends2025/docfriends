@@ -10,7 +10,7 @@ const path = Astro.url.pathname.replace(/\/$/, '');
         <a href={l.href} class:list={[{ active: path === l.href }]}>{l.label}</a>
       ))}
     </div>
-    <a href="/contact" class="btn primary sm">Get a quote</a>
+    <a href="/contact?service=general" class="btn primary sm">Get a quote</a>
   </div>
 </nav>
 
