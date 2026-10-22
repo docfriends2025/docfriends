@@ -1,0 +1,73 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import AcademicNav from '~/components/academic/AcademicNav.astro';
+import { ACADEMIC_SERVICES } from '~/lib/academic';
+
+// Three services shown on the overview.
+const featured = ACADEMIC_SERVICES.filter((s) => ['manuscript-editing', 'thesis-support', 'journal-publication'].includes(s.slug));
+---
+
+<BaseLayout title="Academic writing — DocFriends" description="Editing, thesis support, journal submission and scientific writing. You stay the author." activeNav="/academic">
+  <AcademicNav />
+
+  <section class="ac-hero">
+    <div class="container">
+      <div class="eyebrow">Academic & scientific writing</div>
+      <h1 class="h-display ac-title">Academic writing support, <em>done with you, not for you.</em></h1>
+      <p class="ac-lead">Editing, thesis support, journal submission and scientific writing for researchers. You stay the author. We make the manuscript clear, compliant and ready to submit.</p>
+      <div class="ac-cta-row">
+        <a href="/contact" class="btn primary lg">Get a quote →</a>
+        <a href="/academic/pricing" class="btn ghost lg">See pricing</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="ac-section">
+    <div class="container">
+      <div class="eyebrow">Most requested</div>
+      <div class="ac-cards">
+        {featured.map((s) => (
+          <article class="ac-card">
+            <h2 class="h-display ac-card-title">{s.name}</h2>
+            <p class="muted">{s.desc}</p>
+            <a href={`/contact?service=${s.slug}`} class="ac-ask">Ask about this →</a>
+          </article>
+        ))}
+      </div>
+      <p class="ac-more"><a href="/academic/services" class="ul">All nine services →</a></p>
+    </div>
+  </section>
+
+  <section class="ac-trust">
+    <div class="container ac-trust-grid">
+      <div><strong>You stay the author.</strong><span class="muted">Your name on the paper, your data, your approval.</span></div>
+      <div><strong>Scopus and Web of Science.</strong><span class="muted">Journal shortlists use indexed journals only.</span></div>
+      <div><strong>Confidential files.</strong><span class="muted">Your manuscript is shared only with the team working on it.</span></div>
+    </div>
+  </section>
+
+  <section class="ac-section">
+    <div class="container ac-final">
+      <h2 class="h-display ac-final-title">Send us your file. <em>We reply with a quote.</em></h2>
+      <a href="/contact" class="btn primary lg">Get a quote →</a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .ac-hero { padding-block: clamp(48px, 7vw, 92px) clamp(36px, 5vw, 60px); }
+  .ac-title { font-size: clamp(38px, 5.2vw, 64px); max-width: 880px; margin-top: 14px; }
+  .ac-lead { font-size: 18px; color: var(--ink-soft); max-width: 640px; margin-top: 18px; line-height: 1.6; }
+  .ac-cta-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+  .ac-section { padding-block: clamp(36px, 5vw, 60px); }
+  .ac-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-top: 20px; }
+  .ac-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 26px; display: flex; flex-direction: column; gap: 10px; }
+  .ac-card-title { font-size: 26px; }
+  .ac-ask { margin-top: auto; font-size: 14px; font-weight: 600; color: var(--accent); padding-top: 8px; }
+  .ac-more { margin-top: 22px; font-size: 14px; }
+  .ac-trust { background: var(--paper-2); border-block: 1px solid var(--line); padding-block: 28px; }
+  .ac-trust-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; }
+  .ac-trust-grid div { display: flex; flex-direction: column; gap: 4px; font-size: 14.5px; }
+  .ac-final { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 22px; padding-block: 24px; }
+  .ac-final-title { font-size: clamp(30px, 4vw, 46px); }
+</style>

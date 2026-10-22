@@ -1,0 +1,27 @@
+---
+import { ACADEMIC_NAV } from '~/lib/academic';
+const path = Astro.url.pathname.replace(/\/$/, '');
+---
+<nav class="ac-subnav" aria-label="Academic writing">
+  <div class="container ac-subnav-inner">
+    <a href="/academic" class="ac-brand">Academic <em>Writing</em></a>
+    <div class="ac-links">
+      {ACADEMIC_NAV.map((l) => (
+        <a href={l.href} class:list={[{ active: path === l.href }]}>{l.label}</a>
+      ))}
+    </div>
+    <a href="/contact" class="btn primary sm">Get a quote</a>
+  </div>
+</nav>
+
+<style>
+  .ac-subnav { border-bottom: 1px solid var(--line); background: var(--paper-2); }
+  .ac-subnav-inner { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-block: 12px; flex-wrap: wrap; }
+  .ac-brand { font-family: var(--serif); font-size: 19px; }
+  .ac-brand em { color: var(--accent); font-style: italic; }
+  .ac-links { display: flex; gap: 22px; font-size: 14px; font-weight: 500; color: var(--ink-soft); }
+  .ac-links a { padding: 3px 0; }
+  .ac-links a:hover { color: var(--ink); }
+  .ac-links a.active { color: var(--ink); box-shadow: inset 0 -1.5px 0 var(--accent); }
+  @media (max-width: 720px) { .ac-links { gap: 14px; } }
+</style>

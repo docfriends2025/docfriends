@@ -1,0 +1,70 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import AcademicNav from '~/components/academic/AcademicNav.astro';
+import { ACADEMIC_PACKAGES, PRICING_FOOTNOTE, formatRupees } from '~/lib/academic';
+---
+
+<BaseLayout title="Pricing — Academic writing — DocFriends" description="Academic writing prices from ₹5,000. Final quote after we see your file." activeNav="/academic/pricing">
+  <AcademicNav />
+
+  <section class="ac-hero">
+    <div class="container">
+      <div class="eyebrow">Pricing</div>
+      <h1 class="h-display ac-title">Priced to the file, <em>not a template.</em></h1>
+      <p class="ac-lead">Each price is a starting point. We confirm the final quote after we read your file.</p>
+    </div>
+  </section>
+
+  <section class="ac-section">
+    <div class="container">
+      <div class="ac-pgrid">
+        {ACADEMIC_PACKAGES.map((p) => (
+          <article class:list={['ac-pcard', { featured: p.featured }]}>
+            <div class="ac-pcard-body">
+              {p.featured && <span class="chip solid">Most chosen</span>}
+              <h2 class="h-display ac-pname">{p.title}</h2>
+              <p class="muted ac-pbody">{p.body}</p>
+            </div>
+            <div class="ac-pprice">
+              <div class="eyebrow ink">FROM</div>
+              <div class="h-display ac-pamount">{formatRupees(p.price)}</div>
+              <div class="ac-pnote">{p.note}</div>
+              <div class="faint tiny">Final quote after we see your file</div>
+              <a href={`/contact?service=${p.slug}`} class:list={['btn', 'block', p.featured ? 'primary' : 'ghost']}>Get a quote →</a>
+            </div>
+          </article>
+        ))}
+      </div>
+      <p class="ac-footnote muted">{PRICING_FOOTNOTE}</p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .ac-hero { padding-block: clamp(48px, 7vw, 80px) 24px; }
+  .ac-title { font-size: clamp(36px, 4.8vw, 56px); margin-top: 14px; max-width: 760px; }
+  .ac-lead { font-size: 17px; color: var(--ink-soft); max-width: 600px; margin-top: 16px; line-height: 1.6; }
+  .ac-section { padding-block: 24px clamp(48px, 6vw, 80px); }
+
+  /* 4 across on wide screens, 2 × 2 on tablet, 1 column on phone. */
+  .ac-pgrid { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: stretch; }
+  @media (min-width: 640px) { .ac-pgrid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1200px) { .ac-pgrid { grid-template-columns: repeat(4, 1fr); } }
+
+  .ac-pcard {
+    background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 26px; display: flex; flex-direction: column;
+  }
+  .ac-pcard.featured { border: 1.5px solid var(--ink); }
+  .ac-pcard-body { display: flex; flex-direction: column; gap: 12px; flex: 1; }
+  .ac-pcard-body .chip { align-self: flex-start; }
+  .ac-pname { font-size: 26px; line-height: 1.1; }
+  .ac-pbody { font-size: 14.5px; line-height: 1.6; }
+
+  .ac-pprice { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+  .ac-pamount { font-size: 44px; line-height: 1; letter-spacing: -.02em; color: var(--ink); }
+  .ac-pnote { font-size: 13px; color: var(--ink-soft); min-height: 2.6em; }
+  .ac-pprice .btn { margin-top: 14px; }
+
+  .ac-footnote { margin-top: 28px; font-size: 13px; }
+</style>

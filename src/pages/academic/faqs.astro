@@ -1,0 +1,46 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import AcademicNav from '~/components/academic/AcademicNav.astro';
+import { ACADEMIC_FAQS } from '~/lib/academic';
+---
+
+<BaseLayout title="FAQs — Academic writing — DocFriends" description="Common questions about academic writing support, authorship and journal acceptance." activeNav="/academic/faqs">
+  <AcademicNav />
+
+  <section class="ac-hero">
+    <div class="container">
+      <div class="eyebrow">FAQs</div>
+      <h1 class="h-display ac-title">Questions, <em>answered plainly.</em></h1>
+    </div>
+  </section>
+
+  <section class="ac-section">
+    <div class="container-narrow">
+      <div class="accordion">
+        {ACADEMIC_FAQS.map((f, i) => (
+          <details class="acc-item" open={i === 0}>
+            <summary><span>{f.q}</span><span class="acc-mark" aria-hidden="true"></span></summary>
+            <div class="acc-body"><p>{f.a}</p></div>
+          </details>
+        ))}
+      </div>
+      <p class="muted ac-more">Still have a question? <a href="/contact" class="ul">Ask us directly →</a></p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .ac-hero { padding-block: clamp(48px, 7vw, 80px) 24px; }
+  .ac-title { font-size: clamp(36px, 4.8vw, 56px); margin-top: 14px; }
+  .ac-section { padding-block: 24px clamp(48px, 6vw, 80px); }
+  .accordion { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+  .acc-item { border-bottom: 1px solid var(--line); }
+  .acc-item summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 20px 0; font-family: var(--serif); font-size: 22px; line-height: 1.2; }
+  .acc-item summary::-webkit-details-marker { display: none; }
+  .acc-mark { width: 14px; height: 14px; position: relative; flex-shrink: 0; }
+  .acc-mark::before, .acc-mark::after { content: ''; position: absolute; background: var(--ink); top: 50%; left: 0; right: 0; height: 1.5px; transform: translateY(-50%); transition: transform .2s; }
+  .acc-mark::after { transform: translateY(-50%) rotate(90deg); }
+  .acc-item[open] .acc-mark::after { transform: translateY(-50%) rotate(0deg); }
+  .acc-body { padding: 0 0 22px; color: var(--ink-soft); font-size: 15.5px; line-height: 1.65; }
+  .ac-more { margin-top: 28px; font-size: 14.5px; }
+</style>

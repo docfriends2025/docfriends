@@ -1,0 +1,41 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import AcademicNav from '~/components/academic/AcademicNav.astro';
+import { ACADEMIC_SERVICES } from '~/lib/academic';
+---
+
+<BaseLayout title="Services — Academic writing — DocFriends" description="Nine academic writing services, from manuscript editing to journal submission and scientific writing." activeNav="/academic/services">
+  <AcademicNav />
+
+  <section class="ac-hero">
+    <div class="container">
+      <div class="eyebrow">Services</div>
+      <h1 class="h-display ac-title">Nine services. <em>One author.</em></h1>
+      <p class="ac-lead">Pick the stage you are at. Every service keeps you as the author of your work.</p>
+    </div>
+  </section>
+
+  <section class="ac-section">
+    <div class="container ac-grid">
+      {ACADEMIC_SERVICES.map((s, i) => (
+        <article class="ac-card">
+          <span class="mono faint tiny">{String(i + 1).padStart(2, '0')}</span>
+          <h2 class="h-display ac-card-title">{s.name}</h2>
+          <p class="muted">{s.desc}</p>
+          <a href={`/contact?service=${s.slug}`} class="ac-ask">Ask about this →</a>
+        </article>
+      ))}
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .ac-hero { padding-block: clamp(48px, 7vw, 80px) 24px; }
+  .ac-title { font-size: clamp(36px, 4.8vw, 56px); margin-top: 14px; }
+  .ac-lead { font-size: 17px; color: var(--ink-soft); max-width: 620px; margin-top: 16px; line-height: 1.6; }
+  .ac-section { padding-block: 24px clamp(48px, 6vw, 80px); }
+  .ac-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
+  .ac-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 26px; display: flex; flex-direction: column; gap: 10px; }
+  .ac-card-title { font-size: 25px; }
+  .ac-ask { margin-top: auto; font-size: 14px; font-weight: 600; color: var(--accent); padding-top: 8px; }
+</style>
