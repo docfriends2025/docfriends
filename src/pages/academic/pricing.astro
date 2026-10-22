@@ -1,10 +1,11 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
+import '~/styles/academic.css';
 import AcademicNav from '~/components/academic/AcademicNav.astro';
 import { ACADEMIC_PACKAGES, PRICING_FOOTNOTE, formatRupees } from '~/lib/academic';
 ---
 
-<BaseLayout title="Pricing — Academic writing — DocFriends" description="Academic writing prices from ₹5,000. Final quote after we see your file." activeNav="/academic/pricing">
+<BaseLayout title="Pricing — Academic writing — DocFriends" description="Academic writing prices from ₹5,000. Final quote after we see your file." activeNav="/academic">
   <AcademicNav />
 
   <section class="ac-hero">
